@@ -1,0 +1,184 @@
+version: 1
+template_root: templates
+defaults:
+  threshold: 0.86
+  grayscale: true
+  method: ccoeff_normed
+assets:
+  home_attack:
+    file: home_attack.png
+    threshold: 0.82
+    grayscale: false
+    roi:
+    - 0
+    - 800
+    - 240
+    - 260
+  attack_find_match:
+    file: attack_find_match.png
+    threshold: 0.82
+    roi:
+    - 40
+    - 700
+    - 520
+    - 180
+  scout_next:
+    file: scout_next.png
+    threshold: 0.82
+    roi:
+    - 1550
+    - 650
+    - 370
+    - 220
+  scout_attack:
+    file: scout_attack.png
+    grayscale: false
+  battle_end:
+    file: battle_end.png
+  battle_return_home:
+    file: battle_return_home.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 760
+    - 830
+    - 400
+    - 200
+  loot_gold:
+    type: digits
+    roi:
+    - 70
+    - 125
+    - 250
+    - 50
+  loot_elixir:
+    type: digits
+    roi:
+    - 70
+    - 195
+    - 250
+    - 50
+  loot_dark:
+    type: digits
+    roi:
+    - 70
+    - 265
+    - 200
+    - 50
+  home_popup_close:
+    file: home_popup_close.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 1500
+    - 40
+    - 220
+    - 160
+  auto_battle:
+    file: auto_battle.png
+    threshold: 0.8
+    grayscale: false
+  scout_cancel:
+    file: scout_cancel.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 0
+    - 720
+    - 300
+    - 180
+  army_attack:
+    file: army_attack.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 1450
+    - 880
+    - 470
+    - 200
+  side_panel_close:
+    file: side_panel_close.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 1800
+    - 0
+    - 120
+    - 100
+  build_button:
+    file: build_button.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 1680
+    - 780
+    - 240
+    - 300
+  wall_entry:
+    file: wall_entry.png
+    threshold: 0.8
+    grayscale: false
+  wall_more:
+    file: wall_more.png
+    threshold: 0.8
+    grayscale: false
+  wall_add_10:
+    file: wall_add_10.png
+    threshold: 0.8
+    grayscale: false
+  wall_add_1:
+    file: wall_add_1.png
+    threshold: 0.8
+    grayscale: false
+  wall_confirm:
+    file: wall_confirm.png
+    threshold: 0.8
+    grayscale: false
+    roi:
+    - 900
+    - 550
+    - 350
+    - 250
+  home_gold:
+    type: digits
+    roi:
+    - 1580
+    - 20
+    - 240
+    - 70
+  home_elixir:
+    type: digits
+    roi:
+    - 1580
+    - 85
+    - 240
+    - 70
+  home_dark:
+    type: digits
+    roi:
+    - 1580
+    - 150
+    - 240
+    - 70
+  wall_cost_gold:
+    type: digits
+    roi:
+    - 400
+    - 870
+    - 210
+    - 45
+  wall_cost_elixir:
+    type: digits
+    roi:
+    - 620
+    - 870
+    - 210
+    - 45
+  max_label:
+    file: max_label.png
+    threshold: 0.9
+    grayscale: false
+  wall_gold_button:
+    file: wall_gold_button.png
+    threshold: 0.8
+    grayscale: false

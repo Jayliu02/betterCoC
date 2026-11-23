@@ -1,0 +1,52 @@
+device:
+  adb_path: C:\Program Files\Netease\MuMu\nx_device\15.0\shell\adb.exe
+  serial: 127.0.0.1:16384
+capture:
+  backend: adb
+  folder: null
+  loop: true
+control:
+  backend: adb
+  tap_jitter: 2
+  delay_ms:
+  - 120
+  - 280
+vision:
+  assets: assets/assets.yaml
+  digits: assets/digits
+  canonical_size:
+  - 1920
+  - 1080
+  ocr:
+    backend: auto
+    lang: eng
+    psm: 6
+    tesseract_cmd: null
+runtime:
+  log_dir: runtime/mumu/logs
+  screenshot_dir: runtime/mumu/screenshots
+  debug: false
+  dry_run: false
+task:
+  name: raid
+  raid:
+    max_cycles: 1
+    max_runtime_min: 8
+    max_errors: 3
+    match_timeout: 45
+    battle_start_timeout: 45
+    battle_timeout: 240
+    result_timeout: 20
+    end_battle_after_deploy: true
+    loot_check: true
+    min_total: 2000000
+    max_next: 5
+    min_gold: 0
+    min_elixir: 0
+    min_dark: 0
+    auto_battle: true
+    army:
+      troop_slots: []
+      deploy_points: []
+      waves: 1
+      tap_delay_ms: 120

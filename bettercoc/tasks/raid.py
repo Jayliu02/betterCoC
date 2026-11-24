@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from ..context import Context
 from ..errors import MissingAssetError, OcrUnavailable, StopRequested, TaskError
 from ..ocr import parse_number
+from ..recovery import reload_if_stopped
 from ..state_machine import StateMachine
 from .base import Task, TaskResult
 
@@ -42,6 +43,7 @@ class RaidTask(Task):
 
     def run(self, ctx: Context) -> TaskResult:
         self.ctx = ctx
+        self._begin(ctx)
         self.memory = RaidMemory()
         self._load_settings()
         machine = StateMachine(ctx.logger)
@@ -85,7 +87,7 @@ class RaidTask(Task):
             status=status,
             reason=reason,
             counters=ctx.stats.to_dict(),
-            elapsed=ctx.elapsed,
+            elapsed=self._task_elapsed(ctx),
             transitions=transitions,
         )
 
@@ -151,6 +153,8 @@ class RaidTask(Task):
             if ctx.should_stop():
                 raise StopRequested("已请求停止")
             screen = ctx.screen()
+            if reload_if_stopped(ctx, screen=screen):
+                continue
             returned = ctx.find_optional(BATTLE_RETURN, screen=screen)
             if returned is not None:
                 ctx.tap_match(returned)
@@ -307,9 +311,15 @@ class RaidTask(Task):
     def _wait_battle_result(self, timeout: float) -> None:
         ctx = self.ctx
         deadline = ctx.clock() + timeout
+        next_stop_check = 0.0
         while ctx.clock() < deadline:
             if ctx.should_stop():
                 raise StopRequested("已请求停止")
+            now = ctx.clock()
+            if now >= next_stop_check:
+                next_stop_check = now + 5.0
+                if reload_if_stopped(ctx):
+                    continue
             returned = ctx.try_wait(BATTLE_RETURN, 1.5)
             if returned is not None:
                 ctx.tap_match(returned)
@@ -333,7 +343,7 @@ class RaidTask(Task):
         if self.max_cycles > 0 and self.memory.cycles >= self.max_cycles:
             ctx.logger.info("达到循环上限 %d", self.max_cycles)
             return "finish"
-        if ctx.runtime_exceeded(self.max_runtime_min):
+        if self._runtime_exceeded(ctx, self.max_runtime_min):
             ctx.logger.info("达到最大运行时间 %.0f 分钟", self.max_runtime_min)
             return "finish"
         return "raid"

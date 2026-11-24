@@ -28,6 +28,16 @@ class TaskResult:
 
 class Task(ABC):
     name = "task"
+    started_at: float = 0.0
+
+    def _begin(self, ctx: Context) -> None:
+        self.started_at = ctx.clock()
+
+    def _task_elapsed(self, ctx: Context) -> float:
+        return max(0.0, ctx.clock() - self.started_at)
+
+    def _runtime_exceeded(self, ctx: Context, minutes: float) -> bool:
+        return minutes > 0 and self._task_elapsed(ctx) >= minutes * 60
 
     @abstractmethod
     def run(self, ctx: Context) -> TaskResult:

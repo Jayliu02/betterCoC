@@ -73,9 +73,21 @@ ROI：
 | `scout_next` | 模板 | 下一个 |
 | `auto_battle` | 模板 | 自动战斗 |
 | `battle_return_home` | 模板 | 回营 |
+| `game_stop` | 模板 | 断线弹窗“重新载入游戏” |
 | `loot_gold` / `loot_elixir` / `loot_dark` | 数字 | 资源 |
 
 备用：`scout_cancel`（取消侦察）、`scout_attack` / `battle_end`（手动兜底）、`dialog_ok`、`attack_multiplayer`。
+
+## 断线重连
+
+断线弹窗“还在吗？”出现时，`game_stop` 命中“重新载入游戏”，任务点击后等待 `home_attack`，默认最多 90 秒（`runtime.reload_timeout`）。检查点：
+
+- `_ensure_home` 每次回主城
+- `_wait_battle_result` 每 5 秒
+- `wall_upgrade` 和 `farm_wall` 的回主城流程
+- `resources.refresh` 读取资源前的回主城流程
+
+重载会中断当前战斗，任务回到主界面后继续下一轮。
 
 ## 配置
 
@@ -121,6 +133,8 @@ task:
 | `min_gold` / `min_elixir` / `min_dark` | 0 | 单项额外阈值 |
 | `auto_battle` | true | 点自动战斗 |
 | `army` | 空 | 手动下兵兜底 |
+
+`runtime.reload_timeout`（默认 90 秒）控制断线重载后等待主界面的上限。`max_runtime_min` 按单次 raid 任务计时，`farm_wall` 内每轮都会重新计时。
 
 ## 实测
 

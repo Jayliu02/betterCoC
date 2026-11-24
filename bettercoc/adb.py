@@ -145,6 +145,24 @@ class AdbDevice:
             ]
         )
 
+    def force_stop(self, package: str) -> None:
+        self.resolve()
+        self._run(["shell", "am", "force-stop", package])
+
+    def start_app(self, package: str) -> None:
+        self.resolve()
+        self._run(
+            [
+                "shell",
+                "monkey",
+                "-p",
+                package,
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "1",
+            ]
+        )
+
     def pinch(
         self,
         center_x: int = 540,

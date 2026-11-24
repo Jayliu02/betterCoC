@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 
@@ -7,6 +8,7 @@ from ..context import Context
 from ..errors import MissingAssetError, StopRequested, TaskError
 from ..geometry import Rect
 from ..ocr import parse_number
+from ..recovery import reload_if_stopped
 from ..state import update_state
 from ..state_machine import StateMachine
 from .. import console, resources
@@ -18,11 +20,6 @@ SIDE_PANEL_CLOSE = "side_panel_close"
 BATTLE_RETURN = "battle_return_home"
 BUILD_BUTTON = "build_button"
 WALL_ENTRY = "wall_entry"
-WALL_MORE = "wall_more"
-WALL_ADD_10 = "wall_add_10"
-WALL_ADD_1 = "wall_add_1"
-WALL_CONFIRM = "wall_confirm"
-WALL_BULK_MARKER = "wall_bulk_marker"
 HOME_GOLD = "home_gold"
 HOME_ELIXIR = "home_elixir"
 HOME_DARK = "home_dark"
@@ -64,6 +61,7 @@ class WallUpgradeTask(Task):
 
     def run(self, ctx: Context) -> TaskResult:
         self.ctx = ctx
+        self._begin(ctx)
         self.memory = WallMemory()
         self._load_settings()
         machine = StateMachine(ctx.logger)
@@ -116,7 +114,7 @@ class WallUpgradeTask(Task):
             status=status,
             reason=reason,
             counters=ctx.stats.to_dict(),
-            elapsed=ctx.elapsed,
+            elapsed=self._task_elapsed(ctx),
             transitions=transitions,
         )
 
@@ -148,6 +146,7 @@ class WallUpgradeTask(Task):
         self.current_remaining: int | None = None
         self.last_cost_gold = 0
         self.last_cost_elixir = 0
+        self._buttons_saved = False
         self.gold_button = self._point(
             cfg.get("task.wall_upgrade.gold_button", [487, 930]),
             "task.wall_upgrade.gold_button",
@@ -155,6 +154,22 @@ class WallUpgradeTask(Task):
         self.elixir_button = self._point(
             cfg.get("task.wall_upgrade.elixir_button", [707, 930]),
             "task.wall_upgrade.elixir_button",
+        )
+        self.more_point = self._point(
+            cfg.get("task.wall_upgrade.more_point", [925, 753]),
+            "task.wall_upgrade.more_point",
+        )
+        self.add_one_point = self._point(
+            cfg.get("task.wall_upgrade.add_wall_point", [908, 760]),
+            "task.wall_upgrade.add_wall_point",
+        )
+        self.add_ten_point = self._point(
+            cfg.get("task.wall_upgrade.add_ten_point", [710, 755]),
+            "task.wall_upgrade.add_ten_point",
+        )
+        self.confirm_point = self._point(
+            cfg.get("task.wall_upgrade.confirm_point", [1168, 707]),
+            "task.wall_upgrade.confirm_point",
         )
 
     def _point(self, raw, name: str) -> tuple[int, int]:
@@ -179,6 +194,7 @@ class WallUpgradeTask(Task):
             self.memory.dark,
         )
         self._save_state()
+        self._save_buttons(self.ctx)
         return "open"
 
     def _ensure_home(self) -> None:
@@ -187,6 +203,8 @@ class WallUpgradeTask(Task):
             if ctx.should_stop():
                 raise StopRequested("已请求停止")
             screen = ctx.screen()
+            if reload_if_stopped(ctx, screen=screen):
+                continue
             side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
             if side_close is not None:
                 ctx.tap_match(side_close)
@@ -256,11 +274,15 @@ class WallUpgradeTask(Task):
         if entry is None:
             raise TaskError("建造栏中找不到城墙入口")
         self._read_wall_remaining(entry)
-        ctx.tap_match(entry)
-        ctx.sleep(0.8)
-        ctx.click(WALL_MORE, timeout=5)
-        ctx.wait(WALL_ADD_10, timeout=5)
+        self._enter_batch(entry)
         return "select"
+
+    def _enter_batch(self, entry) -> None:
+        ctx = self.ctx
+        ctx.tap_match(entry)
+        ctx.sleep(1.2)
+        ctx.tap(*self.more_point)
+        ctx.sleep(1.5)
 
     def _read_wall_remaining(self, entry, reset: bool = True) -> None:
         ctx = self.ctx
@@ -291,8 +313,10 @@ class WallUpgradeTask(Task):
     def _select(self) -> str:
         ctx = self.ctx
         if self.memory.cycles >= self.max_cycles:
+            ctx.logger.info("达到城墙升级循环上限 %d", self.max_cycles)
             return "finish"
-        if ctx.runtime_exceeded(self.max_runtime_min):
+        if self._runtime_exceeded(ctx, self.max_runtime_min):
+            ctx.logger.info("达到城墙升级运行时长 %.0f 分钟", self.max_runtime_min)
             return "finish"
         cost_gold = self._read_number(WALL_COST_GOLD, None, 0)
         cost_elixir = self._read_number(WALL_COST_ELIXIR, None, 0)
@@ -378,12 +402,13 @@ class WallUpgradeTask(Task):
             total_elixir,
             "金币" if use_gold else "圣水",
         )
+        gold_point, elixir_point = self.gold_button, self.elixir_button
         if use_gold:
-            ctx.tap(*self.gold_button)
+            ctx.tap(*gold_point)
             self.memory.pending_cost = total_gold
             self.memory.pending_currency = "gold"
         else:
-            ctx.tap(*self.elixir_button)
+            ctx.tap(*elixir_point)
             self.memory.pending_cost = total_elixir
             self.memory.pending_currency = "elixir"
         self.memory.pending_batch = batch
@@ -392,23 +417,48 @@ class WallUpgradeTask(Task):
     def _select_batch(self, target: int) -> None:
         ctx = self.ctx
         selected = 1
-        add10 = ctx.wait(WALL_ADD_10, timeout=3)
-        add1 = ctx.wait(WALL_ADD_1, timeout=3)
-        while selected + 10 <= target:
-            ctx.tap_match(add10)
+        while target - selected >= 10:
+            ctx.tap(*self.add_ten_point)
             selected += 10
-            ctx.sleep(0.2)
+            ctx.sleep(0.25)
         while selected < target:
-            ctx.tap_match(add1)
+            ctx.tap(*self.add_one_point)
             selected += 1
             ctx.sleep(0.2)
 
+    def _save_buttons(self, ctx) -> None:
+        if self._buttons_saved:
+            return
+        self._buttons_saved = True
+        path = ctx.config.resolve_path(
+            ctx.config.get(
+                "task.wall_upgrade.buttons_file", "runtime/wall-buttons.json"
+            )
+        )
+        data = {
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "more": list(self.more_point),
+            "add_one": list(self.add_one_point),
+            "add_ten": list(self.add_ten_point),
+            "gold_upgrade": list(self.gold_button),
+            "elixir_upgrade": list(self.elixir_button),
+            "confirm": list(self.confirm_point),
+            "source": "固定位置",
+            "confirmed": True,
+        }
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            ctx.logger.info("升墙按钮坐标已保存: %s", path)
+        except OSError:
+            ctx.logger.exception("保存升墙按钮坐标失败")
+
     def _upgrade(self) -> str:
         ctx = self.ctx
-        confirm = ctx.try_wait(WALL_CONFIRM, 4)
-        if confirm is None:
-            raise TaskError("未出现城墙升级确认页")
-        ctx.tap_match(confirm)
+        ctx.sleep(1.5)
+        ctx.tap(*self.confirm_point)
         ctx.sleep(self.settle)
         batch = self.memory.pending_batch
         if self.memory.pending_currency == "gold":
@@ -442,16 +492,15 @@ class WallUpgradeTask(Task):
             ctx.logger.warning("侧边栏找不到城墙入口，重新打开建造")
             return self._open()
         self._read_wall_remaining(entry, reset=False)
-        ctx.tap_match(entry)
-        ctx.sleep(0.8)
-        ctx.click(WALL_MORE, timeout=5)
-        ctx.wait(WALL_ADD_10, timeout=5)
+        self._enter_batch(entry)
         return "select"
 
     def _return_home(self) -> None:
         ctx = self.ctx
         for _ in range(6):
             screen = ctx.screen()
+            if reload_if_stopped(ctx, screen=screen):
+                continue
             side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
             if side_close is not None:
                 ctx.tap_match(side_close)

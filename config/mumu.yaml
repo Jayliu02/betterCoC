@@ -25,6 +25,9 @@ vision:
 runtime:
   log_dir: runtime/mumu/logs
   screenshot_dir: runtime/mumu/screenshots
+  reload_timeout: 90
+  game_package: com.tencent.tmgp.supercell.clashofclans
+  restart_timeout: 180
   debug: false
   dry_run: false
 task:
@@ -67,6 +70,18 @@ task:
     elixir_button:
     - 707
     - 930
+    more_point:
+    - 925
+    - 753
+    add_wall_point:
+    - 908
+    - 760
+    add_ten_point:
+    - 710
+    - 755
+    confirm_point:
+    - 1168
+    - 707
   farm_wall:
     full_gold: 10000000
     full_elixir: 10000000
@@ -75,3 +90,6 @@ task:
     wall_batch: 0
     max_cycles: 0
     max_runtime_min: 0
+    max_restarts: 5
+    threshold_ratio: 0.9
+    max_raid_retries: 3

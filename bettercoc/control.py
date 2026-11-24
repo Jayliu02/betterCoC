@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from .adb import AdbDevice
+from .errors import TaskError
 
 
 class Controller(Protocol):
@@ -22,6 +23,10 @@ class Controller(Protocol):
         end_radius: int = 40,
         steps: int = 12,
     ) -> None: ...
+
+    def force_stop(self, package: str) -> None: ...
+
+    def start_app(self, package: str) -> None: ...
 
 
 class AdbController:
@@ -50,6 +55,12 @@ class AdbController:
     ) -> None:
         self.device.pinch(center_x, center_y, start_radius, end_radius, steps)
 
+    def force_stop(self, package: str) -> None:
+        self.device.force_stop(package)
+
+    def start_app(self, package: str) -> None:
+        self.device.start_app(package)
+
 
 class NullController:
     def tap(self, x: int, y: int) -> None:
@@ -73,3 +84,9 @@ class NullController:
         steps: int = 12,
     ) -> None:
         return None
+
+    def force_stop(self, package: str) -> None:
+        raise TaskError("空控制后端不支持重启游戏")
+
+    def start_app(self, package: str) -> None:
+        raise TaskError("空控制后端不支持重启游戏")

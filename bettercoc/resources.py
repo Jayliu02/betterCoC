@@ -7,6 +7,7 @@ from . import console
 from .errors import MissingAssetError, TaskError
 from .geometry import Rect
 from .ocr import parse_number
+from .recovery import reload_if_stopped
 from .state import read_state, update_state
 
 if TYPE_CHECKING:
@@ -125,6 +126,8 @@ def _read_number(ctx: Context, name: str, screen) -> int | None:
 def _ensure_home(ctx: Context) -> None:
     for _ in range(8):
         screen = ctx.screen()
+        if reload_if_stopped(ctx, screen=screen):
+            continue
         side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
         if side_close is not None:
             ctx.tap_match(side_close)

@@ -6,7 +6,7 @@
 
 - `raid`：搜索对手、按资源阈值筛选、自动战斗、回营循环。已完成 MuMu 实测。
 - `wall_upgrade`：城墙升级，已完成。主界面“建造” → 滑动建造栏 → 城墙 → 批量选择 → 比较金币/圣水余额 → 确认升级。
-- `farm_wall`：组合调度。资源未满时进攻，金币和圣水都满后按当前单段成本计算最大升级数量，资源降下来后继续进攻。
+- `farm_wall`：组合调度。按资源总和阈值决定先升墙还是先打资源，循环到城墙升满，最后打资源到阈值。
 
 ![模拟器主界面](docs/images/demo-home.png)
 
@@ -23,10 +23,12 @@
 - 运行时：等待、点击、随机抖动、dry-run、停止信号
 - `raid`：状态机、错误恢复、资源筛选、自动战斗、循环上限
 - `wall_upgrade`：建造栏入口、滑动查找、批量 +10/+1、金币/圣水余额对比、确认升级、资源状态文件
-- `farm_wall`：进攻到资源满 → 读单段成本 → 计算最大升级数量 → 批量升墙 → 资源不足继续进攻
+- `farm_wall`：按资源总和阈值决定先升墙或先打资源，循环到城墙升满，最后把资源补到阈值的 90%
 - 运行到建造-城墙栏不再有可升级城墙为止
 - 内置模拟器 `demo`，无需游戏即可跑攻击循环
 - MuMu 实测：ADB 自动重连、实时截图、真实自动战斗、回营
+- 断线重连：识别“还在吗？”弹窗，点击“重新载入游戏”并等待回到主界面
+- 城墙卡住：资源足够但升不动时强制重进游戏，关闭开屏弹窗后重试
 - 单元测试与模拟器集成测试
 
 真实游戏模板位于 `assets/templates`。仓库中的模板来自当前 MuMu 中文版账号，换账号、语言、分辨率或游戏 UI 后需要重新校准。
@@ -74,6 +76,36 @@ bettercoc --config config/mumu.yaml capture -o runtime/mumu/live.png
 bettercoc --config config/mumu.yaml probe --save runtime/mumu/probe.png
 ```
 
+## 断线重连
+
+游戏长时间无操作会弹出“还在吗？因为太久没有进行操作，您已断开连接。”。任务在回主城、等待战斗结算和读取资源时都会检查这个弹窗：
+
+1. 模板 `game_stop` 命中“重新载入游戏”
+2. 点击该链接
+3. 关闭随后出现的欢迎弹窗和侧边面板
+4. 等待 `home_attack` 出现
+
+```yaml
+runtime:
+  reload_timeout: 90
+```
+
+默认最多等 90 秒；超时仍未回到主界面时，任务沿用原有的恢复流程退出。
+
+`assets/templates/stop.png` 是弹窗原图，`assets/templates/game_stop.png` 是从“重新载入游戏”文字裁出的模板。
+
+## 关闭显示器
+
+只关闭显示器、不进入睡眠时，脚本可以继续运行。ADB 截图和点击都在 MuMu 虚拟机内部完成，不依赖主机显示器是否点亮。
+
+同时需要保证：
+
+- 主机不进入睡眠或休眠
+- MuMu 不关闭、不退出
+- 不用合盖或电源键关屏，这两种操作通常配置为睡眠；用显示器电源键或系统“仅关闭显示器”即可
+
+当前 [config/mumu.yaml](config/mumu.yaml) 所在机器的交流电设置是“关闭显示器：从不”“睡眠：从不”，手动关闭显示器不会触发睡眠。
+
 ## 进攻流程 raid
 
 ```text
@@ -111,6 +143,7 @@ prepare ──> raid ──> decide ──> raid ...
 | `scout_next` | 模板 | 侦察界面“下一个” |
 | `auto_battle` | 模板 | 侦察界面“自动战斗” |
 | `battle_return_home` | 模板 | 结算界面“回营” |
+| `game_stop` | 模板 | 断线弹窗“重新载入游戏” |
 | `loot_gold` | 数字 | 左上角金币数量 |
 | `loot_elixir` | 数字 | 左上角圣水数量 |
 | `loot_dark` | 数字 | 左上角暗黑数量 |
@@ -206,23 +239,22 @@ task:
 bettercoc --config config/mumu.yaml run --task wall_upgrade --trace
 ```
 
+升墙按钮使用固定位置：升级更多 `(925,753)`、+1 `(908,760)`、+10 `(710,755)`、金币 `(487,930)`、圣水 `(707,930)`、确定 `(1168,707)`，并保存到 `runtime/wall-buttons.json`。
+
 完整说明见 [docs/wall-loop.md](docs/wall-loop.md)。
 
 ## 打资源 + 升墙 farm_wall
 
-目标：一直运行到建造-城墙栏里没有可升级城墙。
+目标：把城墙全部升满，最后把资源补到阈值。
 
-调度循环：
+调度逻辑：
 
-0. 启动预检：读取当前城墙数量和单段成本；当前金币或圣水足够时，先按金币→圣水把能升的墙升完
-1. 预检后资源未满：调用 `raid` 打一轮
-2. 重复，直到金币和圣水都达到 `full_gold` / `full_elixir`
-3. 资源满：进入建造栏，读取“城墙 xN”剩余数量
-4. 在 X1 状态读取单段成本
-5. 按 `max(gold // cost_gold, elixir // cost_elixir)` 计算最多能升几段
-6. 一次批量升级最大数量
-7. 升级后资源下降且城墙未完成：回到第 1 步
-8. 城墙完成，或资源不足且无法继续升级：退出
+1. 初始读取资源：金币 + 圣水总和超过“资源限值 × 90%”时，直接先升墙；此时城墙已满则退出
+2. 否则先打一轮资源，再升墙
+3. 重复“打资源 → 升墙”，直到没有可升级城墙
+4. 城墙升满后，继续打资源，直到金币 + 圣水总和超过“资源限值 × 90%”
+
+资源限值取 `GOLD_MAX + ELIXIR_MAX`，未读取上限时用 `full_gold + full_elixir`；阈值比例由 `threshold_ratio` 控制。
 
 ```yaml
 task:
@@ -231,8 +263,11 @@ task:
     full_elixir: 10000000
     total_walls: 300
     wall_batch: 0
+    threshold_ratio: 0.9
     max_cycles: 0
     max_runtime_min: 0
+    max_restarts: 5
+    max_raid_retries: 3
 ```
 
 `wall_batch: 0` 表示按资源计算最大数量。
@@ -243,7 +278,7 @@ task:
 bettercoc --config config/mumu.yaml run --task farm_wall --trace
 ```
 
-实测启动预检：金币 1,697,541、圣水 5,164,589，先升 2 段金币 + 8 段圣水，把金币/圣水都用到不足单段成本；随后主流程进攻 1 次。城墙剩余从 219 降到 209。
+资源足够但一次也没有升级成功时，会强制退出并重新启动游戏，关闭“欢迎回家”开屏弹窗后重试，最多 `max_restarts` 次。`max_runtime_min` 按单个任务实例计时。
 
 完整说明见 [docs/farm-wall.md](docs/farm-wall.md)。
 
@@ -271,7 +306,7 @@ MAX_LOADED
 5. 读取失败重试，失败时使用配置的满值兜底
 6. 写入 `runtime/resource-state.json`
 
-`farm_wall` 的资源满判断优先使用全局最大值，不再固定 10,000,000。
+`farm_wall` 的资源阈值判断优先使用全局最大储量，不再固定 10,000,000。
 
 任务启动前 `bettercoc run` 会调用 `ensure_loaded`；`wall_upgrade`、`farm_wall` 也会在需要时确保已加载。后续进攻回城后调用 `refresh` 更新，升墙扣费调用 `adjust` 扣减，不在界面打开时反复读资源。
 
@@ -334,6 +369,7 @@ Controller (ADB input)
 | `bettercoc/tasks/farm_wall.py` | 进攻与升墙组合调度 |
 | `bettercoc/resources.py` | 全局金币/圣水/暗黑读取与缓存 |
 | `bettercoc/console.py` | CMD 资源状态面板 |
+| `bettercoc/recovery.py` | 断线重连与游戏重启恢复 |
 | `bettercoc/demo.py` | 内置模拟器 |
 | `bettercoc/cli.py` | 命令行入口 |
 

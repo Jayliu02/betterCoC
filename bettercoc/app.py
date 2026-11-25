@@ -81,6 +81,7 @@ def build_context(
     delay_seconds = (float(delay[0]) / 1000.0, float(delay[1]) / 1000.0)
     if dry_run is None:
         dry_run = bool(config.get("runtime.dry_run", False))
+    stale_after = float(config.get("runtime.frame_stale_after", 2.0))
     context = Context(
         config=config,
         vision=vision,
@@ -91,6 +92,7 @@ def build_context(
         dry_run=dry_run,
         jitter=jitter,
         tap_delay=delay_seconds,
+        stale_after=stale_after,
     )
     return Components(
         config=config,

@@ -316,7 +316,14 @@ def cmd_assets_list(args) -> int:
     store = AssetStore(config.resolve_path(config.get("vision.assets", "assets/assets.yaml")))
     for name in store.names():
         spec = store.recognition(name)
-        if spec.kind.value == "template":
+        if spec.kind.value == "point":
+            target = f"{spec.point}"
+            detail = (
+                f"check={spec.check.roi} tol={spec.check.tolerance}"
+                if spec.check is not None
+                else "固定位置"
+            )
+        elif spec.kind.value == "template":
             target = str(spec.file)
             detail = f"threshold={spec.threshold}"
         elif spec.kind.value == "color":
@@ -402,6 +409,170 @@ def cmd_run(args) -> int:
     finally:
         signal.signal(signal.SIGINT, previous_handler)
         ctx.close()
+
+
+def cmd_record(args) -> int:
+    from .baseline import build_vision_from_manifest, load_fixture_manifest
+    from .jsonio import read_json
+    from .recorder import record_fixture_session, record_live_session
+
+    if args.live:
+        config = _load_config(args)
+        logger = setup_logging(args.log_level)
+        components = build_context(config, logger)
+        try:
+            recorder = record_live_session(
+                components.capture,
+                components.vision,
+                args.output,
+                frame_count=args.frames,
+                names=args.names,
+                canonical=_canonical(config),
+                note="live passive capture",
+            )
+        finally:
+            components.context.close()
+        assets_manifest = components.vision.assets.manifest_path
+    else:
+        manifest = load_fixture_manifest(args.fixtures)
+        vision = build_vision_from_manifest(manifest)
+        recorder = record_fixture_session(
+            manifest,
+            vision,
+            args.output,
+            frame_limit=args.frames,
+            names=args.names,
+        )
+        assets_manifest = vision.assets.manifest_path
+    report = read_json(recorder.session_dir / "report.json", {}) or {}
+    print(f"会话: {Path(recorder.session_dir).resolve()}")
+    print(
+        f"帧 {report.get('frames', 0)}，事件 {report.get('events_recorded', 0)}，"
+        f"跳过 {report.get('frames_skipped', 0)}，截断 {report.get('truncated')}"
+    )
+    print(f"资源清单: {assets_manifest}")
+    return 0 if report.get("status") == "completed" else 1
+
+
+def cmd_replay(args) -> int:
+    from .app import build_vision
+    from .replay import ReplaySession
+
+    config = _load_config(args)
+    vision = build_vision(config)
+    session = ReplaySession.load(args.session)
+    data = session.run(vision, names=args.names)
+    output = args.output or str(Path(session.root) / "replay-report.json")
+    session.write_report(output, data)
+    summary = data["summary"]
+    print(f"会话: {session.root}")
+    print(
+        f"帧 {summary['frames']}，检查 {summary['checks']}，"
+        f"与录制结果对比 {summary['comparisons']}，不一致 {summary['mismatches']}"
+    )
+    if data["assets_changed"]:
+        print("[WARN] 资源版本与录制时不同，识别结果可能变化")
+    for mismatch in data["mismatches"][:10]:
+        print(
+            f"  [DIFF] {mismatch['frame_id']}:{mismatch['name']} "
+            f"{mismatch['recorded_status']}->{mismatch['replayed_status']} "
+            f"score {mismatch['recorded_score']}->{mismatch['replayed_score']}"
+        )
+    print(f"回放报告: {Path(output).resolve()}")
+    return 0 if not data["mismatches"] else 1
+
+
+def cmd_state(args) -> int:
+    from .state_store import StateStore
+
+    config = _load_config(args)
+    path = (
+        Path(args.path)
+        if args.path
+        else config.resolve_path(
+            config.get("task.farm_wall.state_file", "runtime/resource-state.json")
+        )
+    )
+    store = StateStore(path, stale_after=args.stale_after).load()
+    if store.load_error:
+        print(f"[WARN] {store.load_error}")
+    if not store.keys():
+        print(f"没有可读状态: {path}")
+        return 1
+    print(f"状态文件: {path}（历史格式={store.loaded_legacy}）")
+    for key in store.keys():
+        observation = store.get(key)
+        observed_at = (
+            "-"
+            if observation.observed_at is None
+            else time.strftime("%H:%M:%S", time.localtime(observation.observed_at))
+        )
+        print(
+            f"  {key:<14} value={observation.value!s:<10} "
+            f"source={observation.source.value:<10} status={observation.status.value:<8} "
+            f"frame={observation.frame_id or '-'} at={observed_at} {observation.reason}"
+        )
+    if args.write:
+        target = store.save(args.write)
+        print(f"诊断状态已写入: {Path(target).resolve()}")
+    return 0
+
+
+def cmd_studio(args) -> int:
+    from .studio.app import main as studio_main
+
+    config = None
+    try:
+        config = _load_config(args)
+    except BetterCoCError:
+        config = None
+    argv = []
+    if args.source:
+        argv.extend(["--source", args.source])
+    if args.fixtures:
+        argv.extend(["--fixtures", args.fixtures])
+    if args.workspace:
+        argv.extend(["--workspace", args.workspace])
+    if args.screenshot:
+        argv.extend(["--screenshot", args.screenshot])
+    if args.offscreen:
+        argv.append("--offscreen")
+    return studio_main(argv, config=config)
+
+
+def cmd_baseline(args) -> int:
+    from .baseline import (
+        build_baseline,
+        build_vision_from_manifest,
+        format_summary,
+        load_fixture_manifest,
+        verify_fixtures,
+        write_json_atomic,
+    )
+
+    try:
+        config = _load_config(args)
+    except BetterCoCError:
+        config = None
+    manifest = load_fixture_manifest(args.fixtures)
+    issues = verify_fixtures(manifest)
+    for issue in issues:
+        print(f"[WARN] {issue}")
+    vision = build_vision_from_manifest(manifest, config)
+    size = manifest.get("canonical_size", [1920, 1080])
+    canonical = (int(size[0]), int(size[1]))
+    data = build_baseline(
+        manifest,
+        config=config,
+        vision=vision,
+        canonical=canonical,
+        iterations=args.iterations,
+        adb_iterations=args.adb_iterations,
+    )
+    output = write_json_atomic(args.output, data)
+    print(format_summary(data))
+    print(f"基线数据: {Path(output).resolve()}")
+    return 1 if data["fixtures"]["summary"]["failed"] else 0
 
 
 def cmd_demo(args) -> int:
@@ -492,6 +663,89 @@ def build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--cycles", type=int, default=3, help="演示循环轮数")
     demo.add_argument("--output", default="runtime/demo", help="输出目录")
     demo.set_defaults(func=cmd_demo)
+
+    baseline = subparsers.add_parser(
+        "baseline", help="生成基线报告：固定测试集验收与耗时统计"
+    )
+    baseline.add_argument(
+        "--fixtures",
+        default="tests/fixtures/baseline",
+        help="固定测试集目录（含 manifest.json）",
+    )
+    baseline.add_argument(
+        "--output",
+        "-o",
+        default="runtime/diagnostics/baseline.json",
+        help="基线 JSON 输出路径",
+    )
+    baseline.add_argument("--iterations", type=int, default=100, help="每组耗时样本数")
+    baseline.add_argument(
+        "--adb-iterations",
+        type=int,
+        default=0,
+        help="ADB 截图耗时样本数，0 表示不连设备测量",
+    )
+    baseline.set_defaults(func=cmd_baseline)
+
+    record = subparsers.add_parser(
+        "record", help="录制只读诊断会话：帧、识别事件、资源指纹"
+    )
+    record.add_argument(
+        "--fixtures",
+        default="tests/fixtures/baseline",
+        help="离线固定测试集目录，用于生成不依赖设备的会话",
+    )
+    record.add_argument(
+        "--live", action="store_true", help="从设备只读截图录制，不发送任何输入"
+    )
+    record.add_argument("--frames", type=int, default=8, help="录制帧数")
+    record.add_argument(
+        "--output",
+        default="runtime/diagnostics/sessions",
+        help="会话根目录",
+    )
+    record.add_argument(
+        "--names", nargs="+", default=None, help="只录制这些识别项，默认全部"
+    )
+    record.set_defaults(func=cmd_record)
+
+    replay = subparsers.add_parser("replay", help="离线回放诊断会话，不连接设备")
+    replay.add_argument("session", help="会话目录")
+    replay.add_argument("--names", nargs="+", default=None, help="只回放这些识别项")
+    replay.add_argument("--output", "-o", default=None, help="回放报告路径")
+    replay.set_defaults(func=cmd_replay)
+
+    state = subparsers.add_parser("state", help="查看观测/诊断状态及其来源与新鲜度")
+    state.add_argument("--path", default=None, help="状态文件路径")
+    state.add_argument("--write", default=None, help="另存为诊断状态文件（新格式）")
+    state.add_argument(
+        "--stale-after", type=float, default=120.0, help="超过多少秒视为过期"
+    )
+    state.set_defaults(func=cmd_state)
+
+    studio = subparsers.add_parser(
+        "studio", help="启动 Vision Studio 图形界面（可选依赖 PySide6）"
+    )
+    studio.add_argument(
+        "--source", default=None, help="固定测试集或录制会话目录"
+    )
+    studio.add_argument(
+        "--fixtures",
+        default="tests/fixtures/baseline",
+        help="阈值试验使用的固定测试集",
+    )
+    studio.add_argument(
+        "--workspace", default="runtime/studio", help="草稿与导出目录"
+    )
+    studio.add_argument(
+        "--screenshot",
+        default=None,
+        help="渲染主窗口到 PNG 后退出，用于无显示环境验证",
+    )
+    studio.add_argument(
+        "--offscreen", action="store_true", help="使用 Qt offscreen 平台"
+    )
+    studio.set_defaults(func=cmd_studio)
 
     return parser
 

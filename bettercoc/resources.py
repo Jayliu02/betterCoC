@@ -4,10 +4,10 @@ import time
 from typing import TYPE_CHECKING
 
 from . import console
-from .errors import MissingAssetError, TaskError
+from .errors import MissingAssetError
 from .geometry import Rect
 from .ocr import parse_number
-from .recovery import reload_if_stopped
+from .recovery import ensure_home
 from .state import read_state, update_state
 
 if TYPE_CHECKING:
@@ -24,10 +24,6 @@ MAX_LOADED = False
 MAX_RESOURCE = 20_000_000
 STATE_FILE = "runtime/resource-state.json"
 
-HOME_ATTACK = "home_attack"
-HOME_POPUP_CLOSE = "home_popup_close"
-SIDE_PANEL_CLOSE = "side_panel_close"
-BATTLE_RETURN = "battle_return_home"
 HOME_GOLD = "home_gold"
 HOME_ELIXIR = "home_elixir"
 HOME_DARK = "home_dark"
@@ -124,33 +120,13 @@ def _read_number(ctx: Context, name: str, screen) -> int | None:
 
 
 def _ensure_home(ctx: Context) -> None:
-    for _ in range(8):
-        screen = ctx.screen()
-        if reload_if_stopped(ctx, screen=screen):
-            continue
-        side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
-        if side_close is not None:
-            ctx.tap_match(side_close)
-            ctx.sleep(0.6)
-            continue
-        popup_close = ctx.find_optional(HOME_POPUP_CLOSE, screen=screen)
-        if popup_close is not None:
-            ctx.tap_match(popup_close)
-            ctx.sleep(0.6)
-            continue
-        returned = ctx.find_optional(BATTLE_RETURN, screen=screen)
-        if returned is not None:
-            ctx.tap_match(returned)
-            ctx.sleep(1.5)
-            continue
-        if ctx.find(HOME_ATTACK, screen=screen) is not None:
-            return
-        ctx.back()
-        ctx.sleep(0.6)
-    raise TaskError("无法回到主城读取资源")
+    ensure_home(ctx, label="主城读取资源")
 
 
 def _zoom_out_min(ctx: Context) -> None:
+    if ctx.dry_run:
+        ctx.logger.info("[dry-run] 跳过缩小主城视角")
+        return
     pinch = getattr(ctx.controller, "pinch", None)
     if pinch is not None:
         ctx.logger.info("缩小主城视角到最小")

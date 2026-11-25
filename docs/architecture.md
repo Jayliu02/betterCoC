@@ -61,13 +61,15 @@ device_y = canonical_y * device_height / 1080
 
 | 字段 | 适用类型 | 说明 |
 | --- | --- | --- |
-| `kind` | 全部 | `template`、`ocr`、`color` |
+| `kind` | 全部 | `template`、`ocr`、`color`、`digits`、`point` |
 | `roi` | 全部 | 搜索区域，`None` 表示全屏 |
 | `threshold` | 模板 | 匹配阈值 |
 | `grayscale` | 模板 | 灰度匹配，默认 True |
 | `method` | 模板 | `ccoeff_normed`、`ccorr_normed`、`sqdiff_normed` |
 | `scales` | 模板 | 多尺度系数，默认 `[1.0]` |
 | `file` | 模板 | 相对 `template_root` 的文件 |
+| `point` | 固定坐标 | 点击位置 `[x, y]` |
+| `check` | 固定坐标 | 可选的平均颜色校验 `roi` / `color`(BGR) / `tolerance` |
 | `use_alpha` | 模板 | 使用 PNG Alpha 作为遮罩 |
 | `mask_color` | 模板 | 忽略指定颜色 |
 | `text_any` / `text_all` / `regex` | OCR | 文本过滤 |
@@ -75,6 +77,10 @@ device_y = canonical_y * device_height / 1080
 | `space` / `lower` / `upper` / `min_area` / `min_ratio` | 颜色 | 颜色范围与面积过滤 |
 
 `Recognition` 不持有图像。`Vision` 从 `AssetStore` 取模板并缓存。
+
+### 固定坐标
+
+`Kind.POINT` 直接返回 `point` 坐标上的 `Match`，`Context.tap_match()` 点击该点，不需要模板文件。`check` 存在时，先取 `roi` 的平均 BGR，与 `check.color` 比较最大通道差值，超过 `tolerance` 视为未命中。适合按钮位置固定、但需要在动作前确认画面的场景；比模板匹配快，也不受图标换图影响。
 
 ### 模板匹配
 
@@ -130,11 +136,15 @@ defaults:
   method: ccoeff_normed
 assets:
   home_attack:
-    file: home_attack.png
-    threshold: 0.82
-  auto_battle:
-    file: auto_battle.png
-    grayscale: false
+    type: point
+    point: [110, 935]
+    check:
+      roi: [60, 1027, 120, 18]
+      color: [41, 157, 207]
+      tolerance: 25
+  wall_entry:
+    file: wall_entry.png
+    threshold: 0.8
   loot_gold:
     type: digits
     roi: [70, 125, 250, 50]
@@ -233,6 +243,120 @@ class Memory:
 | `StopRequested` | Ctrl+C 或超时停止 | 任务返回 `stopped` |
 
 任务异常时会保存 `runtime/screenshots/*-raid-error.png`。
+
+## 帧与帧身份
+
+`bettercoc/frame.py` 在 `Screen` 之上增加帧身份，`Context.screen()` 的返回类型不变：
+
+```text
+Capture.grab() ──> normalize_frame ──> Screen(image, viewport)
+                                            │
+                              FrameProvider.capture()
+                                            ▼
+Frame(frame_id, source_id, sequence, raw_size, viewport,
+      captured_at=单调时钟, captured_wall=墙钟, image=只读视图)
+                                            │
+                              Frame.to_screen() ──> Screen.frame_id
+```
+
+| 接口 | 行为 |
+| --- | --- |
+| `Context.screen()` | 采集新帧并返回 `Screen`，`screen.frame_id` 标识输入帧 |
+| `Context.capture_frame()` | 采集并返回 `Frame`，同时更新 `last_frame`、`last_screen`、`viewport` |
+| `Context.current_frame()` | 返回最近一帧，不重新采集；没有帧时采集一次 |
+| `Context.refresh_frame()` | 显式重新采集 |
+| `Context.frame_age()` | 最近一帧的年龄（秒） |
+| `Context.find_in(frame, ...)` | 在指定帧上识别；帧超过 `stale_after` 抛 `FrameStaleError` |
+| `Frame.is_stale(max_age, now)` | 超过 `stale_after`（默认 2 秒，配置 `runtime.frame_stale_after`）视为过期 |
+
+`Match` 新增 `frame_id`、`threshold`、`status`：识别结果携带输入帧身份，同一帧上的多次识别共享
+同一个 `frame_id`。`Vision.find_all` 从 `screen.frame_id` 回填，模板命中同时回填阈值。
+
+同一诊断批次内共享同一 `Frame`，图像是只读视图（`Frame.copy_image()` 需要可写副本）。
+过期帧不会被静默当作新帧：`find_in` / `find_all_in` 显式拒绝，必须调用 `refresh_frame()`。
+
+## 识别语义
+
+`Match.status` 区分四种语义：
+
+| 状态 | 含义 |
+| --- | --- |
+| `matched` | 有视觉证据：模板 / 颜色 / 数字 / OCR 命中，或 point 的颜色校验通过 |
+| `miss` | 未命中（由 `find` 返回 `None` 表达，事件里记为 `miss`） |
+| `coordinate_only` | `type: point` 没有 `check`，只代表固定坐标，不能当作目标存在证据 |
+| `unknown` | 识别无法执行或状态未知（如数字区域为空、OCR 不可用） |
+
+`coordinate_only` 用于 CLI、Studio 和诊断事件，避免把“点了固定坐标”展示成“识别成功”。
+
+## 诊断事件
+
+`bettercoc/events.py` 定义统一事件字段：
+
+```text
+run_id, event_type, timestamp, monotonic, frame_id, recognition_id,
+name, status, score, threshold, bbox, duration_ms, error_code, message, detail
+```
+
+- `EventType`：`session`、`capture`、`recognition`、`tap`、`state`、`error`、`task`。
+- `ErrorCode`：设备不可用、截图失败、资源缺失、OCR 不可用、识别缺失、状态未知、超时、取消、
+  配置错误、帧过期、存储失败、任务错误、内部错误。
+- `EventLog` 是有界内存日志（默认 2000 条）+ 可选 JSONL 落盘，线程安全，记录丢弃数量。
+- `classify_error(exc)` 把现有异常映射成 `ErrorCode`，不改变任务的恢复策略。
+
+## 录制与离线回放
+
+`bettercoc/recorder.py` 只做只读诊断录制：
+
+```text
+sessions/<run_id>/
+  manifest.json     schema 版本、时间、canonical、来源、资源指纹、配置快照、帧元数据
+  frames/*.png      保存的 canonical 帧（无损 PNG）
+  events.jsonl      识别与环境事件
+  report.json       帧数、事件数、丢弃/截断、错误码统计、耗时
+```
+
+限制：`RecorderLimits(max_frames, max_events, max_frame_bytes)`，超出后跳过并标记 `truncated`，
+不静默丢数据。资源指纹包含资源清单与全部模板的 sha256，回放时对比并给出 `assets_changed` 警告。
+
+`bettercoc/replay.py` 从会话目录恢复 `Frame`（不创建任何 Capture，也不连接 ADB），逐帧重跑识别，
+与录制事件逐项对比状态、分数与 bbox。分数容差固定为 `1e-3`（事件里的分数保留 4 位小数）。
+
+## 状态存储
+
+`bettercoc/state_store.py` 是与游戏任务解耦的观测/诊断状态模型：
+
+| 字段 | 取值 |
+| --- | --- |
+| `value` | 可空；缺失不等于 0 |
+| `source` | `observed` / `estimated` / `cached` / `configured` |
+| `status` | `valid` / `stale` / `unknown` |
+| `observed_at` | 观测墙钟时间，用于计算新鲜度 |
+| `frame_id` | 观测来自哪一帧 |
+| `reason` | 为什么缺失、过期或使用配置兜底 |
+| `schema_version` | 当前为 1 |
+
+`StateStore` 支持历史 `resource-state.json` 兼容读取（映射为 `cached`、无观测时间），新格式单独
+落盘，不覆盖旧文件。写入使用临时文件 + 原子替换，失败时抛 `StateError` 且旧文件保持不变。
+`capacity_check` 把“余额超过已知上限”标为 `over_capacity` 并说明可能是上限未刷新或识别误差，
+不直接判为识别错误。
+
+## Vision Studio
+
+`bettercoc/studio/` 是可选 GUI（PySide6），只读接入现有能力：
+
+```text
+StudioSource ──> FixtureSource（固定测试集）
+             ├─> SessionSource（录制会话，复用 ReplaySession）
+             └─> LiveSource（FrameProvider + 只读截图）
+
+ImageCanvas ── 等比缩放/留白 ──> 画布像素 <-> canonical 坐标（studio/geometry.py）
+RecognitionRow ──> matched / coordinate_only / miss / unknown + 得分/阈值/区域/耗时
+TemplateEditor ── 框选 ──> evaluate_draft（误检/漏检） ──> export_draft（草稿，不覆盖正式资源）
+BackgroundRunner ── 单线程 QThreadPool + 有界待处理队列，主线程只渲染
+```
+
+边界：Studio 不引用 `Controller`，源码扫描测试禁止设备输入关键字；设备预览只做 `screencap`，
+采集在 worker 线程；关闭窗口时 `shutdown()` 等待线程结束，并关闭数据源与截图后端。
 
 ## 扩展点
 

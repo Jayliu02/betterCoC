@@ -9,9 +9,15 @@ from pathlib import Path
 import numpy as np
 
 from .config import Config
-from .errors import MissingAssetError, RecognitionTimeout, StopRequested
+from .errors import (
+    FrameStaleError,
+    MissingAssetError,
+    RecognitionTimeout,
+    StopRequested,
+)
+from .frame import Frame, FrameProvider
 from .geometry import Rect, Viewport
-from .image import Screen, normalize_frame, save_image
+from .image import Screen, save_image
 from .result import Match
 from .vision import Vision
 
@@ -48,6 +54,7 @@ class Context:
         clock=time.monotonic,
         sleeper=None,
         rng: random.Random | None = None,
+        stale_after: float = 2.0,
     ) -> None:
         self.config = config
         self.vision = vision
@@ -63,20 +70,72 @@ class Context:
         self.rng = rng or random.Random()
         self.stats = Stats()
         self.last_screen: Screen | None = None
+        self.last_frame: Frame | None = None
         self.viewport: Viewport | None = None
         self.started_at = clock()
         self._stop = threading.Event()
         self._stop_reason = ""
         self._shot_index = 0
         self._optional_warned: set[str] = set()
+        self._frames = FrameProvider(
+            capture,
+            canonical=canonical,
+            clock=clock,
+            stale_after=stale_after,
+        )
 
     def screen(self) -> Screen:
-        frame = self.capture.grab()
-        screen = normalize_frame(frame, self.canonical)
-        self.last_screen = screen
-        self.viewport = screen.viewport
+        return self.capture_frame().to_screen()
+
+    def capture_frame(self) -> Frame:
+        frame = self._frames.capture()
+        self.last_frame = frame
+        self.last_screen = frame.to_screen()
+        self.viewport = frame.viewport
         self.stats.incr("captures")
-        return screen
+        return frame
+
+    def current_frame(self) -> Frame:
+        if self.last_frame is None:
+            return self.capture_frame()
+        return self.last_frame
+
+    def refresh_frame(self) -> Frame:
+        return self.capture_frame()
+
+    def frame_age(self) -> float | None:
+        if self.last_frame is None:
+            return None
+        return self.last_frame.age(now=self.clock())
+
+    def find_in(
+        self,
+        frame: Frame,
+        target: str | object,
+        roi: Rect | None = None,
+        max_age: float | None = None,
+    ) -> Match | None:
+        if frame.is_stale(max_age=max_age, now=self.clock()):
+            raise FrameStaleError(
+                f"帧 {frame.frame_id} 已过期 {frame.age(now=self.clock()):.2f}s，"
+                "请先调用 refresh_frame()"
+            )
+        return self.find(target, screen=frame.to_screen(), roi=roi)
+
+    def find_all_in(
+        self,
+        frame: Frame,
+        target: str | object,
+        roi: Rect | None = None,
+        limit: int = 30,
+        max_age: float | None = None,
+    ) -> list[Match]:
+        if frame.is_stale(max_age=max_age, now=self.clock()):
+            raise FrameStaleError(
+                f"帧 {frame.frame_id} 已过期 {frame.age(now=self.clock()):.2f}s，"
+                "请先调用 refresh_frame()"
+            )
+        return self.find_all(target, screen=frame.to_screen(), roi=roi, limit=limit)
 
     def find(
         self,

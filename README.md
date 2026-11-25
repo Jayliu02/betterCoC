@@ -15,6 +15,7 @@
 - 截图后端：ADB、图片文件夹、静态图片
 - 画面统一归一化到 1920x1080，ROI、模板、点击坐标共用一套坐标
 - 模板匹配：ROI、阈值、灰度/三通道、多尺度、Alpha 遮罩、颜色遮罩、NMS
+- 固定坐标：`type: point` 直接点击坐标，可带小区域平均颜色校验，按钮位置固定时比模板匹配快且不怕换图标
 - 颜色识别：HSV / BGR
 - OCR：Tesseract 可选
 - 数字模板识别：无需 Tesseract 读取金币、圣水、暗黑数量
@@ -129,40 +130,60 @@ prepare ──> raid ──> decide ──> raid ...
 
 细节见 [docs/raid.md](docs/raid.md)。
 
-## 图像识别项
+## 识别项与固定坐标
 
-当前 `raid` 需要的识别项：
+CoC 在 1920x1080 下绝大多数按钮位置固定，所以按钮改成 `type: point`：直接点固定坐标，不做模板匹配。需要在动作前确认画面状态时，才对固定位置做一次小区域平均颜色校验（`check`），比模板匹配快，也不会因为按钮图标换图而失效。
+
+```yaml
+home_attack:
+  type: point
+  point: [110, 935]          # 点击坐标
+  check:                     # 可选：ROI 平均颜色（BGR）与容差
+    roi: [60, 1027, 120, 18]
+    color: [41, 157, 207]
+    tolerance: 25
+```
+
+带 `check` 的 point 会让 `find()` 返回命中/未命中，`click()` 等到命中后点击 `point`；省略 `check` 时 `find()` 永远命中，只用于无条件点击。坐标换算成设备坐标后点击，抖动、dry-run、延迟都沿用 `Context.tap()`。
+
+固定坐标（1920x1080，中文版 UI）：
+
+| 名称 | 坐标 | 用途 |
+| --- | --- | --- |
+| `home_attack` | 110,935 | 主城“战斗” |
+| `attack_find_match` | 280,773 | 常规战“搜索对手” |
+| `army_attack` | 1695,965 | 我的军队页“进攻！” |
+| `scout_next` | 1749,745 | 侦察“下一个” |
+| `scout_cancel` | 140,810 | 侦察/战斗页“结束战斗”“放弃”（弹窗变暗时用第二组颜色） |
+| `battle_confirm` | 1158,776 | “放弃?”确认弹窗“确定” |
+| `battle_return_home` | 961,932 | 结算“回营” |
+| `home_popup_close` | 1644,125 | 欢迎回家弹窗 X |
+| `side_panel_close` | 1888,35 | 侧边面板 X |
+| `exit_cancel` | 746,770 | “确定退出”弹窗“取消” |
+| `build_button` | 1832,935 | 主城“建造” |
+
+需要模板或位置会变的项：
 
 | 名称 | 类型 | 用途 |
 | --- | --- | --- |
-| `home_attack` | 模板 | 主城左下角“战斗”按钮 |
-| `home_popup_close` | 模板 | 欢迎回家弹窗的红色 X |
-| `side_panel_close` | 模板 | 侧边“建筑和英雄”面板的 X |
-| `attack_find_match` | 模板 | 常规战“搜索对手” |
-| `army_attack` | 模板 | 我的军队页“进攻！” |
-| `scout_next` | 模板 | 侦察界面“下一个” |
-| `auto_battle` | 模板 | 侦察界面“自动战斗” |
-| `battle_return_home` | 模板 | 结算界面“回营” |
+| `auto_battle` | 模板 | 侦察“自动战斗”，整排按钮会随状态移位，所以限制在 `roi: [800,730,820,140]` 内匹配 |
 | `game_stop` | 模板 | 断线弹窗“重新载入游戏” |
-| `loot_gold` | 数字 | 左上角金币数量 |
-| `loot_elixir` | 数字 | 左上角圣水数量 |
-| `loot_dark` | 数字 | 左上角暗黑数量 |
+| `wall_entry` | 模板 | 建造栏里的城墙图标（位置随滚动变化） |
+| `max_label` | 模板 | 资源上限弹窗 |
 
-备用识别项：`scout_attack`、`battle_end`、`scout_cancel`、`dialog_ok`、`attack_multiplayer`。自动战斗流程不需要 `scout_attack` 和 `battle_end`。
-
-`wall_upgrade` 额外需要：
+数字项：
 
 | 名称 | 类型 | 用途 |
 | --- | --- | --- |
-| `build_button` | 模板 | 主城右下角“建造” |
-| `wall_entry` | 模板 | 建造栏里的城墙图标 |
-| `wall_more` | 模板 | 城墙面板“升级更多” |
-| `wall_add_10` / `wall_add_1` | 模板 | 批量加墙 |
-| `wall_confirm` | 模板 | 确认升级 |
 | `home_gold` / `home_elixir` / `home_dark` | 数字 | 主城资源 |
+| `loot_gold` / `loot_elixir` / `loot_dark` | 数字 | 侦察界面左上角资源 |
 | `wall_cost_gold` / `wall_cost_elixir` | 数字 | 每段城墙成本 |
 
-颜色项 `wall_upgrade_available` 已从当前清单移除；两个任务都直接使用模板和数字识别。
+手动下兵兜底用的 `scout_attack`、`battle_end` 仍是模板项，模板文件还没校准；自动战斗流程不需要它们。
+
+回主城的公共流程在 `bettercoc/recovery.py`：依次处理断线弹窗、侧边面板、欢迎弹窗、侦察/战斗页“结束战斗/放弃”及其“确定”、退出游戏弹窗“取消”、结算“回营”，最后用 `home_attack` 的颜色校验确认主城。画面切换中等待，失败时保存 `ensure-home-failed` 截图。
+
+侦察界面如果没有“自动战斗”按钮（游戏内该功能不可用），任务会结束本次侦察、回到主城并直接报错提示，不会卡在战斗里。
 
 ## 配置
 
@@ -362,8 +383,15 @@ Controller (ADB input)
 | `bettercoc/assets.py` | YAML 资源清单 |
 | `bettercoc/vision.py` | 统一识别入口 |
 | `bettercoc/context.py` | 等待、点击、停止、截图 |
+| `bettercoc/frame.py` | 帧身份、过期判定、只读帧图像 |
 | `bettercoc/locator.py` | 链式定位器 |
 | `bettercoc/state_machine.py` | 通用状态机 |
+| `bettercoc/events.py` | 诊断事件、错误码、有界事件日志 |
+| `bettercoc/recorder.py` | 只读诊断会话录制 |
+| `bettercoc/replay.py` | 离线回放与结果对比 |
+| `bettercoc/state_store.py` | 观测/诊断状态（来源、新鲜度、原子写入） |
+| `bettercoc/baseline.py` | 基线测量、固定测试集执行、环境指纹 |
+| `bettercoc/studio/` | Vision Studio 图形界面（可选 PySide6） |
 | `bettercoc/tasks/raid.py` | 进攻刷资源任务 |
 | `bettercoc/tasks/wall_upgrade.py` | 城墙升级任务 |
 | `bettercoc/tasks/farm_wall.py` | 进攻与升墙组合调度 |
@@ -400,6 +428,7 @@ assets/templates/     模板
 assets/digits/        数字模板
 docs/                 设计、校准、任务说明
 tests/                单元测试与模拟器集成测试
+tests/fixtures/       离线固定测试集与标注
 scripts/              本地运行与测试脚本
 runtime/              日志、截图、演示输出
 ```
@@ -417,7 +446,64 @@ $env:PYTHONPATH = ".deps;."
 python -m unittest discover -s tests -v
 ```
 
-覆盖几何、模板、颜色、数字、OCR 过滤、资源清单、状态机、模拟器进攻循环。
+覆盖几何、模板、颜色、数字、OCR 过滤、资源清单、状态机、模拟器进攻循环、固定测试集识别、dry-run 设备输入。
+
+## 基线
+
+`tests/fixtures/baseline` 是离线固定测试集：32 帧历史 MuMu 截图（含缩放、裁切、模糊、亮度、噪声变体），
+`manifest.json` 记录每帧的来源、变换和识别项标注。识别直接使用 `assets/assets.yaml`，不改任务默认参数。
+
+```powershell
+python -m bettercoc --config config/mumu.yaml baseline --iterations 100
+python -m bettercoc --config config/mumu.yaml baseline --iterations 100 --adb-iterations 100
+```
+
+第一条只测静态帧路径；加 `--adb-iterations` 才会连设备做只读 `screencap` 采样。输出
+`runtime/diagnostics/baseline.json` 与终端摘要，包含环境/资源指纹、固定测试集通过情况、各阶段 P50/P95。
+当前结果与接口审查见 [docs/baseline.md](docs/baseline.md)。
+
+重新生成固定测试集：
+
+```powershell
+python tools/build_baseline_fixtures.py
+```
+
+## 诊断与回放
+
+`record` 生成只读诊断会话（帧 PNG、识别事件、资源指纹、报告），`replay` 用会话里的截图离线重跑识别，
+与录制结果逐项对比，全程不连接设备：
+
+```powershell
+python -m bettercoc record --frames 8
+python -m bettercoc --config config/mumu.yaml replay runtime/diagnostics/sessions/<run_id>
+python -m bettercoc --config config/mumu.yaml state
+```
+
+- `record` 默认从 `tests/fixtures/baseline` 取帧，加 `--live` 才会从设备只读截图。
+- `replay` 输出到会话目录的 `replay-report.json`，分数容差固定 `1e-3`；资源指纹变化会提示 `[WARN]`。
+- `state` 读取历史 `runtime/resource-state.json`，按 `source`（observed/estimated/cached/configured）
+  与 `status`（valid/stale/unknown）展示，`--write` 另存为诊断状态文件，不覆盖原记录。
+
+## Vision Studio
+
+可选的只读图形界面（PySide6），用于看画面、看识别结果、框选模板、试阈值和回放会话：
+
+```powershell
+pip install -e ".[studio]"
+bettercoc --config config/mumu.yaml studio
+bettercoc studio --source runtime/diagnostics/sessions/<run_id>
+```
+
+- 五个页面：Vision（画面 + 识别项 + 匹配框 + 状态/得分/耗时）、Template（框选 + ROI + 阈值试验 + 草稿导出）、
+  Replay（逐帧事件 + 复现对比）、Logs（过滤与导出）、Settings（只读配置）。
+- 识别状态显示 `matched` / `coordinate_only` / `miss` / `unknown`，不会把固定坐标显示成识别成功。
+- 画布等比缩放并留白，框选坐标转换到 1920x1080 canonical。
+- 模板导出只写 `runtime/studio/drafts/`，不覆盖正式资源；设备预览只用只读截图。
+- 不装 Qt 时 CLI 照常可用。无显示环境可用
+  `bettercoc studio --screenshot runtime/studio/main.png --offscreen` 验证。
+
+完整说明见 [docs/vision-studio.md](docs/vision-studio.md)。
+
 
 ## 使用边界
 

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import numpy as np
+
 from .color import find_color
 from .digits import DigitReader
 from .errors import MissingAssetError
 from .geometry import Rect
 from .image import Screen
 from .ocr import NullOcr, OcrBackend, filter_text
-from .result import Match
-from .spec import Kind, Recognition
+from .result import Match, RecognitionStatus
+from .spec import Kind, PointCheck, Recognition
 from .template import find_template
 
 
@@ -45,6 +47,20 @@ class Vision:
         limit: int = 30,
     ) -> list[Match]:
         spec = self.resolve(target, roi)
+        matches = self._find_all(screen, spec, limit)
+        frame_id = getattr(screen, "frame_id", None)
+        for match in matches:
+            if frame_id is not None:
+                match.frame_id = frame_id
+            if match.threshold is None:
+                match.threshold = spec.threshold
+        return matches
+
+    def _find_all(
+        self, screen: Screen, spec: Recognition, limit: int
+    ) -> list[Match]:
+        if spec.kind is Kind.POINT:
+            return self._find_point(screen, spec, limit)
         if spec.kind is Kind.TEMPLATE:
             template = self.assets.template(spec)
             return find_template(screen, template, spec, limit=limit)
@@ -63,8 +79,49 @@ class Vision:
         filtered.sort(key=lambda item: item.score, reverse=True)
         return filtered[:limit]
 
+    def _find_point(
+        self, screen: Screen, spec: Recognition, limit: int
+    ) -> list[Match]:
+        point = spec.point
+        if point is None:
+            raise MissingAssetError(f"识别项 {spec.name} 没有固定坐标")
+        if spec.check is not None and not self.point_check(screen, spec.check):
+            return []
+        status = (
+            RecognitionStatus.MATCHED
+            if spec.check is not None
+            else RecognitionStatus.COORDINATE_ONLY
+        )
+        return [
+            Match(
+                rect=Rect(point[0], point[1], 1, 1),
+                score=1.0,
+                name=spec.name,
+                status=status,
+            )
+        ]
+
+    @staticmethod
+    def point_check(screen: Screen, check: PointCheck) -> bool:
+        roi = check.roi.clamp(screen.width, screen.height)
+        if roi.is_empty():
+            return False
+        patch = screen.crop(roi)
+        mean = patch.reshape(-1, 3).astype(np.float32).mean(axis=0)
+        targets = np.array(check.colors, dtype=np.float32)
+        distances = np.abs(targets - mean).max(axis=1)
+        return bool((distances <= check.tolerance).any())
+
     def describe(self, name: str) -> str:
         spec = self.assets.recognition(name)
+        if spec.kind is Kind.POINT:
+            detail = f"point {spec.point}"
+            if spec.check is not None:
+                detail += (
+                    f" check roi={spec.check.roi} colors={spec.check.colors}"
+                    f" tolerance={spec.check.tolerance}"
+                )
+            return detail
         if spec.kind is Kind.TEMPLATE:
             return f"template {spec.file} roi={spec.roi} threshold={spec.threshold}"
         if spec.kind is Kind.COLOR:

@@ -22,6 +22,10 @@ class RecognitionTimeout(BetterCoCError):
     pass
 
 
+class FrameStaleError(BetterCoCError):
+    pass
+
+
 class OcrUnavailable(BetterCoCError):
     pass
 

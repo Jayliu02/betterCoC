@@ -16,6 +16,8 @@ class Screen:
     viewport: Viewport
     source: str = "unknown"
     captured_at: float = field(default_factory=time.monotonic)
+    frame_id: str | None = None
+    sequence: int = 0
 
     @property
     def width(self) -> int:

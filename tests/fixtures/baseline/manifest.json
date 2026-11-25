@@ -1,0 +1,1186 @@
+{
+  "version": 1,
+  "generator": "tools/build_baseline_fixtures.py",
+  "canonical_size": [
+    1920,
+    1080
+  ],
+  "assets_manifest": "../../../assets/assets.yaml",
+  "digits_dir": "../../../assets/digits",
+  "storage": {
+    "format": "webp",
+    "quality": 80,
+    "lossy": true,
+    "note": "为控制仓库体积使用有损 webp；识别分数与原始 PNG 存在小幅差异，标签以存储文件为准"
+  },
+  "defaults": {
+    "label_hit": "期望命中",
+    "label_miss": "期望不命中",
+    "label_known_defect": "期望不命中但当前命中，已知缺陷，计入基线但不算失败"
+  },
+  "frames": [
+    {
+      "id": "home-a",
+      "file": "frames/home-a.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "normal"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 604092,
+        "file_sha256": "0cafe0bb77ab42ccd14a7b9fc2fdeb736a28dae8bd7995591aced39c0160c919",
+        "pixels_sha256": "4b04a3b9e3cc8377a596c7a5b63e5deaa05417df4522d07779f042a10c2bd4be"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit",
+        "game_stop": "miss",
+        "auto_battle": "miss",
+        "wall_more": "miss",
+        "army_attack": "miss",
+        "home_popup_close": "miss"
+      },
+      "notes": "主城全景，金币 1,697,542 / 圣水 5,164,589 / 暗黑 207,500"
+    },
+    {
+      "id": "home-b",
+      "file": "frames/home-b.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "normal"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\after-leaderboard.png",
+        "sha256": "6b5eeec16d33719f97f18d71966ed3ec18f78b0e7b2ffc5d26bec9272d6fa399",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 576472,
+        "file_sha256": "f8c3d64477823fcf140628f1678a54aabb6346366192fba66a53b3ee46fa86eb",
+        "pixels_sha256": "34850b7a1c2a8c5429633335f78c4501fc8ac7dffc0c4d9ad16616ab3648e62e"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit",
+        "game_stop": "miss",
+        "auto_battle": "miss",
+        "home_popup_close": "miss"
+      },
+      "notes": "主城，金币 234,789 / 圣水 9,400,000"
+    },
+    {
+      "id": "home-wall-selected",
+      "file": "frames/home-wall-selected.webp",
+      "state": "home_wall_panel",
+      "tags": [
+        "home",
+        "wall"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\wall-test-01.png",
+        "sha256": "8af0afba6d1e731858dc26714816e456436a9efc5d798c6409befcb0b5fb8e93",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 413746,
+        "file_sha256": "50e7c9636d705aa4c26c52d9eecacc953770ebe77920dcf5be721ed45c12ab19",
+        "pixels_sha256": "8df0f9ef744b9e265ed5685d481e070f837fcbd621f6867e40371ba5516cdfe7"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit",
+        "game_stop": "miss",
+        "wall_more": "miss"
+      },
+      "notes": "主城选中城墙，单墙升级面板已打开"
+    },
+    {
+      "id": "attack-menu-a",
+      "file": "frames/attack-menu-a.webp",
+      "state": "attack_menu",
+      "tags": [
+        "attack_menu",
+        "normal"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-attack-menu.png",
+        "sha256": "3d7d7b3c5d3d696a70547f1415202015c7951f88a5f06c686fe65cfb7b715f25",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 266420,
+        "file_sha256": "d7bdb14a34e00325dd3a0054048770226165273ab317b4a017ccf4ecfbcdcb3d",
+        "pixels_sha256": "390953b6eccd1be726e8352cd35bde349affa5553a158cb5f2b68f25ea1635e8"
+      },
+      "labels": {
+        "attack_find_match": "hit",
+        "home_attack": "miss",
+        "build_button": "hit",
+        "game_stop": "miss"
+      },
+      "notes": "联机模式，常规战搜索对手"
+    },
+    {
+      "id": "attack-menu-side-panel",
+      "file": "frames/attack-menu-side-panel.webp",
+      "state": "attack_menu_side_panel",
+      "tags": [
+        "attack_menu",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\attack-01.png",
+        "sha256": "8ae92a580a48a00281422a6fae94a7ab8f2abebaa91787ffe39861a220f0288d",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 206402,
+        "file_sha256": "80e3d95a82669612c2617eeb837644d65dd77eb9de0bd4371e80525f04c42d31",
+        "pixels_sha256": "3357bfc14dd8691bfd7d617250ddf5bc6c154ec5277fa7f7c0e68e4ed309f7f4"
+      },
+      "labels": {
+        "attack_find_match": "hit",
+        "home_attack": "miss",
+        "build_button": "hit",
+        "game_stop": "miss"
+      },
+      "notes": "联机模式，右侧战场寻宝卡片展开"
+    },
+    {
+      "id": "army-a",
+      "file": "frames/army-a.webp",
+      "state": "army",
+      "tags": [
+        "army",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-army.png",
+        "sha256": "b6c6e32b1ca6c7558812726d08b490da7b3b994dc65cf5194590c2979a94889d",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 174094,
+        "file_sha256": "d2317f230813e51835ef375cf130b4bf89b418eca68c7b1d7f513e2f9d97591c",
+        "pixels_sha256": "fea1728201f2a57771fd5e37c2aeb2ec0ae71d930191bff074dafb78cb2e715e"
+      },
+      "labels": {
+        "army_attack": "hit",
+        "home_attack": "miss",
+        "attack_find_match": "miss",
+        "build_button": "hit"
+      },
+      "notes": "我的军队确认页，右下角进攻按钮"
+    },
+    {
+      "id": "scout-a",
+      "file": "frames/scout-a.webp",
+      "state": "scouting",
+      "tags": [
+        "scouting",
+        "normal"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-scout-now.png",
+        "sha256": "7997843b8aeb9e29b23e762103b596f81c9bc111bc136af4b902f130b7dd4f24",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 552590,
+        "file_sha256": "360cfad00ef9c6c494fa2b1aa85b338baa928496e55664b6963859a5a4955ba0",
+        "pixels_sha256": "bae20d44ef0619145fa7be7bd4bd65b6a82fe93b24472b55ea8fac0d99e68cd8"
+      },
+      "labels": {
+        "scout_next": "hit",
+        "scout_cancel": "hit",
+        "auto_battle": "miss",
+        "home_attack": "miss",
+        "battle_return_home": "miss",
+        "loot_gold": "hit",
+        "loot_elixir": "hit",
+        "loot_dark": "hit"
+      },
+      "notes": "侦察界面，战利品 330,146 / 301,471 / 4,293，开战倒计时 32 秒"
+    },
+    {
+      "id": "scout-auto-battle",
+      "file": "frames/scout-auto-battle.webp",
+      "state": "scouting_auto_battle",
+      "tags": [
+        "scouting",
+        "normal",
+        "auto_battle"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\screenshots\\20261124-225751-001-ensure-home-failed.png",
+        "sha256": "d3b67f0092090e829dcae20650641f29f81f8e6bd3f80c846f78c81bcfa28563",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 495172,
+        "file_sha256": "eb92e8c9b530f3d24a3e9439ff12a623f47d123be27e2a672e139f082a0c3ad6",
+        "pixels_sha256": "1cd5afe853ff06accb760aa71caa945a170c6227398aea9f1613be3f4b3e34e8"
+      },
+      "labels": {
+        "scout_next": "hit",
+        "scout_cancel": "hit",
+        "auto_battle": "miss",
+        "home_attack": "miss"
+      },
+      "notes": "侦察界面出现自动战斗按钮；auto_battle 最佳得分 0.58 低于阈值 0.8，按钮样式与已校准模板不同"
+    },
+    {
+      "id": "battle-a",
+      "file": "frames/battle-a.webp",
+      "state": "battle",
+      "tags": [
+        "battle",
+        "normal"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\scout-04.png",
+        "sha256": "7b2fbb416e0900cb64b912463a9aba3ece847b4b0626cb114f3c4593e43b75f6",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 414942,
+        "file_sha256": "252c1213bf08ec05e1136cd848fbc170c6582277ba7da2eb5d6bf8ac63c5b629",
+        "pixels_sha256": "8beb28e60586769ec4eb18071ec0fd0d51b5bdc7a872e3c51493604cdbc28b53"
+      },
+      "labels": {
+        "scout_cancel": "hit",
+        "scout_next": "miss",
+        "auto_battle": "miss",
+        "home_attack": "miss",
+        "battle_return_home": "miss"
+      },
+      "notes": "战斗中，左下角放弃按钮"
+    },
+    {
+      "id": "battle-b",
+      "file": "frames/battle-b.webp",
+      "state": "battle",
+      "tags": [
+        "battle",
+        "normal"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\auto-result.png",
+        "sha256": "99d3c01ce758db0bde503f0d6da4df66c19a55ea307dcb65de3d614c2359a64b",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 380932,
+        "file_sha256": "ed9f8bd08482f0c7af369716cc9aa58256b1c040fbc304756f664a23a0c2d948",
+        "pixels_sha256": "dfe6a9bfbc74653ece2350ace5407d7f81cd12247251795ce4c852d79b94ff0f"
+      },
+      "labels": {
+        "scout_cancel": "hit",
+        "scout_next": "miss",
+        "auto_battle": "miss",
+        "home_attack": "miss"
+      },
+      "notes": "战斗中，左下角结束战斗按钮"
+    },
+    {
+      "id": "battle-confirm-dialog",
+      "file": "frames/battle-confirm-dialog.webp",
+      "state": "battle_confirm",
+      "tags": [
+        "battle",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\screenshots\\20261124-225809-002-ensure-home-failed.png",
+        "sha256": "8543c4ba197fb10f4ff6de81467361025488e397df9861454341d25bf20b363e",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 201548,
+        "file_sha256": "8d3f822d2e9e6e9a5614f13a68ca889419b909b70d36c00b2318cf5a3d3d93c8",
+        "pixels_sha256": "1e0f63ad77c6c0675791231d1004928a993d186af5e238a8da9b1713d42f60d8"
+      },
+      "labels": {
+        "battle_confirm": "hit",
+        "scout_cancel": "hit",
+        "scout_next": "miss",
+        "auto_battle": "miss"
+      },
+      "notes": "放弃？确认弹窗，取消/确定按钮"
+    },
+    {
+      "id": "wall-bulk-a",
+      "file": "frames/wall-bulk-a.webp",
+      "state": "wall_bulk",
+      "tags": [
+        "wall",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\wall-more-01.png",
+        "sha256": "c13cb2c73a4f421dc7f08c8b37d4fc21298523f5ab8aca4f252146fd62c1c708",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 334342,
+        "file_sha256": "7496c7b16606d6413e8eabfb6589de4bcb4639b13c5c3a65b42e82423d92402d",
+        "pixels_sha256": "fcb48462694b4a9359d9ec799d1291054de6e46f8ca4569f462d20863685b146"
+      },
+      "labels": {
+        "wall_add_1": "hit",
+        "wall_add_10": "hit",
+        "wall_cost_gold": "hit",
+        "wall_cost_elixir": "hit",
+        "side_panel_close": "hit",
+        "wall_confirm": "miss"
+      },
+      "notes": "批量选择城墙，添加 +1/+10、金币/圣水升级按钮"
+    },
+    {
+      "id": "wall-panel-a",
+      "file": "frames/wall-panel-a.webp",
+      "state": "build_panel",
+      "tags": [
+        "wall",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\wall-entry-01.png",
+        "sha256": "1922a77d9547cdcea40929ffaa243122a87b6fbbe21c01d2d760c36b91c0d3a1",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 333080,
+        "file_sha256": "66a559c904da110009a80e4787b86701b6ab1157786767cb88635fd9ae800a32",
+        "pixels_sha256": "fb81930ab4fd292e8279d1d3402d592ff5020d46449502df73464566acac74f0"
+      },
+      "labels": {
+        "side_panel_close": "hit",
+        "wall_entry": "hit",
+        "wall_more": "miss"
+      },
+      "notes": "建造侧边面板，右侧建筑列表首行为城墙"
+    },
+    {
+      "id": "wall-list-a",
+      "file": "frames/wall-list-a.webp",
+      "state": "build_list",
+      "tags": [
+        "wall",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\wall-upgraded-01.png",
+        "sha256": "9b0f514536d32e171bcfb75b41088aac241648dd1f8744e50af516341e282047",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 333308,
+        "file_sha256": "ad014f1018983db76d2d177a9bd74102cea200c43bb06c5ef6ede64397acd62e",
+        "pixels_sha256": "4a45b50309b92fc00c23e9fc32d07db686b130afd4867bed45c26faf6e8d8c21"
+      },
+      "labels": {
+        "wall_entry": "hit",
+        "side_panel_close": "hit"
+      },
+      "notes": "建造面板建筑列表，城墙入口可见"
+    },
+    {
+      "id": "welcome-popup-a",
+      "file": "frames/welcome-popup-a.webp",
+      "state": "welcome_popup",
+      "tags": [
+        "home",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\relaunch-01.png",
+        "sha256": "2e312f3e122e0bb84aba101c1089efe8e029fbc566fb30be15dca7ba4292e3de",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 44740,
+        "file_sha256": "e2baff7c53347f2c4156d16e1077c1492dddccc042ea04fbf8fb957022cd8ab2",
+        "pixels_sha256": "6da817a2b0438ac7e76d7f01c7533638b80998e5e9777f658a7b4f096f53a16b"
+      },
+      "labels": {
+        "home_popup_close": "miss",
+        "home_attack": "miss",
+        "game_stop": "miss"
+      },
+      "notes": "欢迎回家弹窗；X 位置比其他样式更靠上，home_popup_close 的校验点落空"
+    },
+    {
+      "id": "welcome-popup-b",
+      "file": "frames/welcome-popup-b.webp",
+      "state": "welcome_popup",
+      "tags": [
+        "home",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\restart1.png",
+        "sha256": "4d65b3dc2108f8e5977a1b077b81d8207f7338828cfa4ac431492ab61680dff6",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 153234,
+        "file_sha256": "9e337988903ca095ddc96d60ab138306f1b9e0e53fdc0f5af70824b572aec2cf",
+        "pixels_sha256": "8e85ad98efecceb26d69f489bcd46514266f08397c5de72c97893db794aec1e0"
+      },
+      "labels": {
+        "home_popup_close": "hit",
+        "home_attack": "miss",
+        "game_stop": "miss"
+      },
+      "notes": "欢迎回家弹窗，红底 X 关闭按钮"
+    },
+    {
+      "id": "welcome-popup-c",
+      "file": "frames/welcome-popup-c.webp",
+      "state": "welcome_popup_overlay",
+      "tags": [
+        "home",
+        "popup"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\relaunch-02.png",
+        "sha256": "c1fe98868b6288f744b5756ab5e5ad82c3f45cea18c4b4cd137dd8429107dbdc",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 148430,
+        "file_sha256": "34dd09cda77c559f2a265414939814452bce24ed4b879c411bfb9f7efd4750d3",
+        "pixels_sha256": "3d1442dafa005987e63aa4de08dcf6c59b1a32b5ef8c71b0fc0f574230d8ae94"
+      },
+      "labels": {
+        "home_popup_close": "miss",
+        "home_attack": "miss"
+      },
+      "notes": "欢迎回家弹窗叠加版本公告横幅；X 位置与校准点不同，未命中"
+    },
+    {
+      "id": "disconnected",
+      "file": "frames/disconnected.webp",
+      "state": "disconnect_dialog",
+      "tags": [
+        "dialog",
+        "disconnect"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\screenshots\\20261124-093042-001-game-stopped.png",
+        "sha256": "116b302a3df14dfbffd88c9d130e02e1cf4acddd8bf6328abea35b3e86d15f6c",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "none"
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 176714,
+        "file_sha256": "01d8dd467beb68889be5ea0cbd4982ab97e9b3c09093b9736711e4a9f475add8",
+        "pixels_sha256": "b7c6a09525a0c578d09600f63c9222313bd1e5bf3a6092e4317cd784d4c9bd98"
+      },
+      "labels": {
+        "game_stop": "hit",
+        "home_attack": "miss",
+        "home_popup_close": "miss",
+        "wall_gold_button": "known_defect"
+      },
+      "notes": "还在吗？断线弹窗，重新载入游戏链接"
+    },
+    {
+      "id": "home-a-scale-1280x720",
+      "file": "frames/home-a-scale-1280x720.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "scaled"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "scale",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "stored": {
+        "width": 1280,
+        "height": 720,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 267242,
+        "file_sha256": "f191a3b96a2add0e5ccd58fb87e80bc78563e3242f878b4362cf98b08beac277",
+        "pixels_sha256": "452f48c8941cd2edbb31f1635ac4e16888d53da57342f09496f8fd31d1f20c04"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit",
+        "game_stop": "miss",
+        "auto_battle": "miss"
+      },
+      "notes": "1280x720 缩放，验证归一化与 Viewport"
+    },
+    {
+      "id": "home-a-scale-2560x1440",
+      "file": "frames/home-a-scale-2560x1440.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "scaled"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "scale",
+          "width": 2560,
+          "height": 1440
+        }
+      ],
+      "stored": {
+        "width": 2560,
+        "height": 1440,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 649834,
+        "file_sha256": "39d06e674dbdfe17db9de9fcca7a739401871ec4d6590c4fcb62fc72242a8318",
+        "pixels_sha256": "85be59146c7ad5a79260341f8cd8f690c86915778f3a74d9e7235ad41fed093f"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit",
+        "game_stop": "miss"
+      },
+      "notes": "2560x1440 放大，验证设备坐标换算"
+    },
+    {
+      "id": "home-a-crop-topleft",
+      "file": "frames/home-a-crop-topleft.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "cropped"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "crop",
+          "x": 0,
+          "y": 0,
+          "width": 1600,
+          "height": 900
+        }
+      ],
+      "stored": {
+        "width": 1600,
+        "height": 900,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 457822,
+        "file_sha256": "88f447f64c9ad695daaf73a6c99305f2230855e7966cb89195c573b54c9a2af2",
+        "pixels_sha256": "f1b68a576cce69f277c7bfffb2983f63d51b2ccefa45ae41b998883582191dd3"
+      },
+      "labels": {
+        "home_attack": "miss",
+        "build_button": "hit"
+      },
+      "notes": "裁掉右下角，建造按钮不在画面内，战斗按钮下半部与校验区同时被裁掉"
+    },
+    {
+      "id": "home-a-crop-center",
+      "file": "frames/home-a-crop-center.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "cropped"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "crop",
+          "x": 160,
+          "y": 90,
+          "width": 1600,
+          "height": 900
+        }
+      ],
+      "stored": {
+        "width": 1600,
+        "height": 900,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 475488,
+        "file_sha256": "c5ebf989671781306f8f79a765480117e965b394f64a3fd12808a850bee7c32f",
+        "pixels_sha256": "f7f0b45adb049628f86802b463d0d13e742e3f3d7dc18075660240c25c818599"
+      },
+      "labels": {
+        "home_attack": "miss",
+        "build_button": "hit"
+      },
+      "notes": "居中裁切，左下角战斗按钮被裁掉"
+    },
+    {
+      "id": "home-a-blur",
+      "file": "frames/home-a-blur.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "blurred"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "blur",
+          "sigma": 2.0
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 173006,
+        "file_sha256": "a157b31666ced8a4f47cc7c7e27937486b10d55bb359e23d0ccb98bd154a79d1",
+        "pixels_sha256": "95d01913c47e334c890896f51a3e3626b2c402020f32f16ebaf229c3820ac9cd"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit",
+        "game_stop": "miss"
+      },
+      "notes": "高斯模糊 sigma=2.0"
+    },
+    {
+      "id": "home-a-dim",
+      "file": "frames/home-a-dim.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "dimmed"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "dim",
+          "factor": 0.55
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 399012,
+        "file_sha256": "22c7a7949e03560ba31935591b7a2725b6af5a8fa8dbeb701d7d5dde0434f8ca",
+        "pixels_sha256": "b7c35e02de4bd735e807e744abf8d2f654c27401a7e7011db18933bed1557016"
+      },
+      "labels": {
+        "home_attack": "miss",
+        "build_button": "hit"
+      },
+      "notes": "整体亮度 55%，模拟弹窗遮罩"
+    },
+    {
+      "id": "home-a-noise",
+      "file": "frames/home-a-noise.webp",
+      "state": "home",
+      "tags": [
+        "home",
+        "noise"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\home-now.png",
+        "sha256": "7ea1b3b4f186533b6d46404575fd81aad77a9f544009f7c8b1f73a09b57ae5b7",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "noise",
+          "sigma": 8.0,
+          "seed": 20261125
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 1528016,
+        "file_sha256": "6ad2f45cd7b378927dcc7c54caae8f9c098262feacb33fb1287054161c57c70b",
+        "pixels_sha256": "aa6edcd9ca91de53b2ffead22217579e418b9312fa19da2f45050a8a626eccbe"
+      },
+      "labels": {
+        "home_attack": "hit",
+        "build_button": "hit"
+      },
+      "notes": "高斯噪声 sigma=8，固定随机种子"
+    },
+    {
+      "id": "scout-a-scale-1280x720",
+      "file": "frames/scout-a-scale-1280x720.webp",
+      "state": "scouting",
+      "tags": [
+        "scouting",
+        "scaled"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-scout-now.png",
+        "sha256": "7997843b8aeb9e29b23e762103b596f81c9bc111bc136af4b902f130b7dd4f24",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "scale",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "stored": {
+        "width": 1280,
+        "height": 720,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 243232,
+        "file_sha256": "b23849aa784c37ebabe7ad08631233b01a96b1e18a470c0567e9bf80b797726e",
+        "pixels_sha256": "9c2cc4297bab249b17896a5d6277a7128ae1178756242c79f3bf7966d80090b8"
+      },
+      "labels": {
+        "scout_next": "hit",
+        "scout_cancel": "hit",
+        "loot_gold": "hit"
+      },
+      "notes": "1280x720 侦察界面"
+    },
+    {
+      "id": "scout-a-crop",
+      "file": "frames/scout-a-crop.webp",
+      "state": "scouting",
+      "tags": [
+        "scouting",
+        "cropped"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-scout-now.png",
+        "sha256": "7997843b8aeb9e29b23e762103b596f81c9bc111bc136af4b902f130b7dd4f24",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "crop",
+          "x": 320,
+          "y": 180,
+          "width": 1600,
+          "height": 900
+        }
+      ],
+      "stored": {
+        "width": 1600,
+        "height": 900,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 409798,
+        "file_sha256": "2e381bc64a50199a00e16df10a2fb01ee94b06dc8468f6dd71ca348f624e1a11",
+        "pixels_sha256": "4d3f75ac611b0b148779026d01debf17bbccc98368dd5b230b2eb9e8cb6245b0"
+      },
+      "labels": {
+        "scout_next": "miss"
+      },
+      "notes": "裁掉左上战利品面板；数字项没有存在性校验，仍会在无关区域返回数值，因此这里不标注数字项"
+    },
+    {
+      "id": "scout-a-blur",
+      "file": "frames/scout-a-blur.webp",
+      "state": "scouting",
+      "tags": [
+        "scouting",
+        "blurred",
+        "digits"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-scout-now.png",
+        "sha256": "7997843b8aeb9e29b23e762103b596f81c9bc111bc136af4b902f130b7dd4f24",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "blur",
+          "sigma": 3.0
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 121114,
+        "file_sha256": "5e5edba5151dafa8b441d87ddbe38d97835c81fec6dd6747950aad5fb0f5b98f",
+        "pixels_sha256": "68569ad9f2b352088bbae3b132cd3362002728f0cac2205fce3aad8b223a4b08"
+      },
+      "labels": {
+        "scout_next": "hit",
+        "scout_cancel": "hit"
+      },
+      "notes": "高斯模糊 sigma=3.0，数字边缘糊化"
+    },
+    {
+      "id": "wall-bulk-a-blur",
+      "file": "frames/wall-bulk-a-blur.webp",
+      "state": "wall_bulk",
+      "tags": [
+        "wall",
+        "blurred"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\wall-more-01.png",
+        "sha256": "c13cb2c73a4f421dc7f08c8b37d4fc21298523f5ab8aca4f252146fd62c1c708",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "blur",
+          "sigma": 2.0
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 138926,
+        "file_sha256": "eb0b06672c65c1905295fbcd75841ccf2375790647313a449f94f58ab8eeca71",
+        "pixels_sha256": "1e503532279b98cfeaefb327c6a1a1d1f0a0386217bd4c3ad6bce3745f7f9c64"
+      },
+      "labels": {
+        "wall_add_1": "miss",
+        "wall_add_10": "miss"
+      },
+      "notes": "批量选择界面高斯模糊 sigma=2.0；wall_add_1 得分 0.835、wall_add_10 得分 0.854，均低于 0.9 阈值"
+    },
+    {
+      "id": "disconnected-blur",
+      "file": "frames/disconnected-blur.webp",
+      "state": "disconnect_dialog",
+      "tags": [
+        "dialog",
+        "disconnect",
+        "blurred"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\screenshots\\20261124-093042-001-game-stopped.png",
+        "sha256": "116b302a3df14dfbffd88c9d130e02e1cf4acddd8bf6328abea35b3e86d15f6c",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "blur",
+          "sigma": 1.0
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 117214,
+        "file_sha256": "6e271c4c95b8a207134c793eaf21b62b0568963a04406a0ae5bfd24c49463c9c",
+        "pixels_sha256": "83f14af01ee7eb34efcd6282d56383ff448f599ba2870f3ebbc0022b4e03c136"
+      },
+      "labels": {
+        "game_stop": "hit"
+      },
+      "notes": "断线弹窗轻度模糊"
+    },
+    {
+      "id": "attack-menu-a-scale-1280x720",
+      "file": "frames/attack-menu-a-scale-1280x720.webp",
+      "state": "attack_menu",
+      "tags": [
+        "attack_menu",
+        "scaled"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\live-attack-menu.png",
+        "sha256": "3d7d7b3c5d3d696a70547f1415202015c7951f88a5f06c686fe65cfb7b715f25",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "scale",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "stored": {
+        "width": 1280,
+        "height": 720,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 132246,
+        "file_sha256": "34378d6487ddecb43e267531c3905f4758ded457474302cb980359bdca2a42df",
+        "pixels_sha256": "300e351e785cee6533ebbf65c652b9704d9aca82b9ad004f100bc328901c236a"
+      },
+      "labels": {
+        "attack_find_match": "hit",
+        "home_attack": "miss"
+      },
+      "notes": "1280x720 联机模式"
+    },
+    {
+      "id": "welcome-popup-a-dim",
+      "file": "frames/welcome-popup-a-dim.webp",
+      "state": "welcome_popup",
+      "tags": [
+        "home",
+        "popup",
+        "dimmed"
+      ],
+      "source": {
+        "path": "runtime\\mumu\\relaunch-01.png",
+        "sha256": "2e312f3e122e0bb84aba101c1089efe8e029fbc566fb30be15dca7ba4292e3de",
+        "width": 1920,
+        "height": 1080
+      },
+      "transform": [
+        {
+          "kind": "dim",
+          "factor": 0.7
+        }
+      ],
+      "stored": {
+        "width": 1920,
+        "height": 1080,
+        "format": "webp",
+        "quality": 80,
+        "bytes": 33566,
+        "file_sha256": "59617af9b2ff7b6fe37ffc1b81fa65ff9e104208e11a0fceadd0021cd8d55b95",
+        "pixels_sha256": "04322ff259bb70b4ad59b2decadd3d94d8a4f5d591983a005fbe9135ad21df32"
+      },
+      "labels": {
+        "home_popup_close": "miss",
+        "home_attack": "miss"
+      },
+      "notes": "欢迎回家弹窗亮度 70%；颜色校验对亮度敏感，home_popup_close 未命中"
+    }
+  ]
+}

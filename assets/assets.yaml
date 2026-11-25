@@ -1,49 +1,58 @@
 version: 1
 template_root: templates
+# 固定位置识别项：
+#   type: point
+#   point: [x, y]            # 1920x1080 归一化坐标，直接点击这里
+#   check:                   # 可选，小区域平均颜色校验（BGR）
+#     roi: [x, y, w, h]
+#     color: [b, g, r]       # 也可写 [[...],[...]]，匹配正常/变暗等多组颜色
+#     tolerance: 25          # 最大通道差值，越小越严格
+# 坐标来自 1920x1080 截图；换分辨率或 UI 后需要重新校准。
 defaults:
   threshold: 0.86
   grayscale: true
   method: ccoeff_normed
 assets:
   home_attack:
-    file: home_attack.png
-    threshold: 0.82
-    grayscale: false
-    roi:
-    - 0
-    - 800
-    - 240
-    - 260
+    type: point
+    point: [110, 935]
+    check:
+      roi: [60, 1027, 120, 18]
+      color: [41, 157, 207]
+      tolerance: 25
   attack_find_match:
-    file: attack_find_match.png
-    threshold: 0.82
-    roi:
-    - 40
-    - 700
-    - 520
-    - 180
+    type: point
+    point: [280, 773]
+    check:
+      roi: [168, 748, 12, 44]
+      color: [50, 177, 250]
+      tolerance: 25
   scout_next:
-    file: scout_next.png
-    threshold: 0.82
-    roi:
-    - 1550
-    - 650
-    - 370
-    - 220
+    type: point
+    point: [1749, 745]
+    check:
+      roi: [1880, 715, 14, 45]
+      color: [76, 203, 255]
+      tolerance: 20
   scout_attack:
     file: scout_attack.png
     grayscale: false
   battle_end:
     file: battle_end.png
   battle_return_home:
-    file: battle_return_home.png
-    threshold: 0.8
-    grayscale: false
-    roi:
-    - 760
-    - 830
-    - 400
-    - 200
+    type: point
+    point: [961, 932]
+    check:
+      roi: [852, 930, 30, 30]
+      color: [52, 205, 139]
+      tolerance: 20
+  exit_cancel:
+    type: point
+    point: [746, 770]
+    check:
+      roi: [585, 715, 30, 30]
+      color: [38, 90, 225]
+      tolerance: 25
   loot_gold:
     type: digits
     roi:
@@ -66,54 +75,48 @@ assets:
     - 200
     - 50
   home_popup_close:
-    file: home_popup_close.png
-    threshold: 0.8
-    grayscale: false
-    roi:
-    - 1500
-    - 40
-    - 220
-    - 160
+    type: point
+    point: [1644, 125]
+    check:
+      roi: [1610, 143, 14, 14]
+      color: [40, 35, 232]
+      tolerance: 20
   auto_battle:
     file: auto_battle.png
     threshold: 0.8
     grayscale: false
+    roi: [800, 730, 820, 140]
+  battle_confirm:
+    type: point
+    point: [1158, 776]
+    check:
+      roi: [1040, 715, 30, 30]
+      color: [33, 190, 112]
+      tolerance: 25
   scout_cancel:
-    file: scout_cancel.png
-    threshold: 0.8
-    grayscale: false
-    roi:
-    - 0
-    - 720
-    - 300
-    - 180
+    type: point
+    point: [140, 810]
+    check:
+      roi: [40, 780, 25, 25]
+      color: [[96, 91, 249], [48, 46, 125]]
+      tolerance: 25
   army_attack:
-    file: army_attack.png
-    threshold: 0.8
-    grayscale: false
-    roi:
-    - 1450
-    - 880
-    - 470
-    - 200
+    type: point
+    point: [1695, 965]
+    check:
+      roi: [1830, 940, 34, 34]
+      color: [144, 250, 200]
+      tolerance: 25
   side_panel_close:
-    file: side_panel_close.png
-    threshold: 0.8
-    grayscale: false
-    roi:
-    - 1800
-    - 0
-    - 120
-    - 100
+    type: point
+    point: [1888, 35]
+    check:
+      roi: [1866, 44, 10, 10]
+      color: [34, 29, 209]
+      tolerance: 20
   build_button:
-    file: build_button.png
-    threshold: 0.8
-    grayscale: false
-    roi:
-    - 1680
-    - 780
-    - 240
-    - 300
+    type: point
+    point: [1832, 935]
   wall_entry:
     file: wall_entry.png
     threshold: 0.8

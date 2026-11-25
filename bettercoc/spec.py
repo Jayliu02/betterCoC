@@ -12,6 +12,7 @@ class Kind(str, Enum):
     OCR = "ocr"
     COLOR = "color"
     DIGITS = "digits"
+    POINT = "point"
 
 
 TEMPLATE_METHODS = (
@@ -19,6 +20,24 @@ TEMPLATE_METHODS = (
     "ccorr_normed",
     "sqdiff_normed",
 )
+
+
+@dataclass(frozen=True)
+class PointCheck:
+    roi: Rect
+    colors: tuple[tuple[int, int, int], ...]
+    tolerance: int = 25
+
+    def __post_init__(self) -> None:
+        if self.roi.is_empty():
+            raise ConfigError(f"固定位置的颜色校验区域为空: {self.roi}")
+        if not self.colors:
+            raise ConfigError("固定位置的颜色校验至少需要一个 BGR 颜色")
+        for color in self.colors:
+            if len(color) != 3:
+                raise ConfigError(f"固定位置的颜色校验需要 3 个 BGR 分量: {color}")
+        if self.tolerance < 0:
+            raise ConfigError(f"颜色校验容差不能为负数: {self.tolerance}")
 
 
 @dataclass(frozen=True)
@@ -31,6 +50,8 @@ class Recognition:
     method: str = "ccoeff_normed"
     scales: tuple[float, ...] = (1.0,)
     file: str | None = None
+    point: tuple[int, int] | None = None
+    check: PointCheck | None = None
     use_alpha: bool = True
     mask_color: tuple[int, int, int] | None = None
     mask_tolerance: int = 12
@@ -60,6 +81,9 @@ class Recognition:
                 raise ConfigError(f"识别项 {self.name} 的阈值需要在 (0,1] 内")
             if not self.scales or any(scale <= 0 for scale in self.scales):
                 raise ConfigError(f"识别项 {self.name} 的缩放系数无效")
+        if self.kind is Kind.POINT:
+            if self.point is None or len(self.point) != 2:
+                raise ConfigError(f"识别项 {self.name} 的固定坐标需要 [x, y]")
         if self.kind is Kind.COLOR:
             if self.space not in ("hsv", "bgr"):
                 raise ConfigError(f"识别项 {self.name} 的颜色空间无效: {self.space}")

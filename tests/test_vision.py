@@ -101,6 +101,47 @@ class TemplateMatchTest(unittest.TestCase):
         self.assertEqual(plain, [])
 
 
+class PointMatchTest(unittest.TestCase):
+    def test_point_without_check_always_hits(self):
+        from bettercoc.vision import Vision
+
+        vision = Vision(assets=None)
+        spec = Recognition(name="tap", kind=Kind.POINT, point=(110, 935))
+        found = vision.find_all(screen_of(random_scene(100, 100)), spec)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].rect, Rect(110, 935, 1, 1))
+        self.assertEqual(found[0].score, 1.0)
+
+    def test_point_check(self):
+        from bettercoc.spec import PointCheck
+        from bettercoc.vision import Vision
+
+        vision = Vision(assets=None)
+        spec = Recognition(
+            name="tap",
+            kind=Kind.POINT,
+            point=(50, 60),
+            check=PointCheck(Rect(10, 10, 20, 20), ((41, 157, 207),), 25),
+        )
+        matching = np.zeros((100, 100, 3), dtype=np.uint8)
+        matching[:, :] = (41, 157, 207)
+        self.assertEqual(len(vision.find_all(screen_of(matching), spec)), 1)
+        dimmed = np.zeros((100, 100, 3), dtype=np.uint8)
+        dimmed[:, :] = (20, 78, 104)
+        self.assertEqual(vision.find_all(screen_of(dimmed), spec), [])
+        multiple = Recognition(
+            name="tap",
+            kind=Kind.POINT,
+            point=(50, 60),
+            check=PointCheck(
+                Rect(10, 10, 20, 20),
+                ((41, 157, 207), (20, 78, 104)),
+                25,
+            ),
+        )
+        self.assertEqual(len(vision.find_all(screen_of(dimmed), multiple)), 1)
+
+
 class ColorMatchTest(unittest.TestCase):
     def test_green_button(self):
         scene = np.zeros((300, 300, 3), dtype=np.uint8)

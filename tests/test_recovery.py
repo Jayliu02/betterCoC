@@ -1,8 +1,11 @@
 import unittest
 
-from bettercoc.errors import TaskError
+import numpy as np
+
+from bettercoc.errors import MissingAssetError, TaskError
 from bettercoc.geometry import Rect
-from bettercoc.recovery import reload_if_stopped, restart_game
+from bettercoc.image import normalize_frame
+from bettercoc.recovery import _is_loading, ensure_home, reload_if_stopped, restart_game
 from bettercoc.result import Match
 
 
@@ -17,6 +20,9 @@ class FakeLogger:
         self.records.append(("info", message % args if args else message))
 
     def exception(self, message, *args):
+        self.records.append(("error", message % args if args else message))
+
+    def error(self, message, *args):
         self.records.append(("error", message % args if args else message))
 
     def debug(self, *args, **kwargs):
@@ -131,6 +137,126 @@ class ReloadIfStoppedTest(unittest.TestCase):
         ctx = FakeContext(stop_matches=2, timeout=10.0)
         self.assertTrue(reload_if_stopped(ctx))
         self.assertEqual([match.name for match in ctx.taps], ["game_stop", "game_stop"])
+
+
+class HomeContext:
+    def __init__(self, home_asset=True):
+        self.vision = FakeVision(
+            {"home_attack", "exit_cancel"} if home_asset else set()
+        )
+        self.logger = FakeLogger()
+        self.taps = []
+        self.backs = 0
+        self.saved = []
+        self.screens = 0
+        self.state = "dialog"
+
+    def should_stop(self):
+        return False
+
+    def screen(self):
+        self.screens += 1
+        return object()
+
+    def find_optional(self, name, screen=None, roi=None):
+        if name == "exit_cancel" and self.state == "dialog":
+            return Match(rect=Rect(746, 770, 1, 1), score=1.0, name=name)
+        return None
+
+    def find(self, name, screen=None, roi=None):
+        if name == "home_attack" and self.state == "home":
+            return Match(rect=Rect(110, 935, 1, 1), score=1.0, name=name)
+        return None
+
+    def tap_match(self, match, offset=(0, 0)):
+        self.taps.append(match.name)
+        if match.name == "exit_cancel":
+            self.state = "home"
+
+    def back(self):
+        self.backs += 1
+
+    def sleep(self, seconds):
+        pass
+
+    def save_screenshot(self, label, screen=None):
+        self.saved.append(label)
+
+
+class EnsureHomeTest(unittest.TestCase):
+    def test_cancels_exit_dialog_then_returns_home(self):
+        ctx = HomeContext()
+        ensure_home(ctx)
+        self.assertEqual(ctx.taps, ["exit_cancel"])
+        self.assertEqual(ctx.backs, 0)
+
+    def test_home_visible_without_dialog(self):
+        ctx = HomeContext()
+        ctx.state = "home"
+        ensure_home(ctx)
+        self.assertEqual(ctx.taps, [])
+
+    def test_missing_home_asset_raises(self):
+        ctx = HomeContext(home_asset=False)
+        with self.assertRaises(MissingAssetError):
+            ensure_home(ctx)
+
+    def test_failure_saves_screenshot(self):
+        class StuckContext(HomeContext):
+            def find_optional(self, name, screen=None, roi=None):
+                return None
+
+            def find(self, name, screen=None, roi=None):
+                return None
+
+        ctx = StuckContext()
+        with self.assertRaises(TaskError):
+            ensure_home(ctx)
+        self.assertEqual(ctx.saved, ["ensure-home-failed"])
+        self.assertEqual(ctx.backs, 8)
+
+
+class BattleContext(HomeContext):
+    def __init__(self):
+        super().__init__()
+        self.state = "battle"
+
+    def find_optional(self, name, screen=None, roi=None):
+        if name == "scout_cancel" and self.state in ("battle", "confirm"):
+            return Match(rect=Rect(140, 810, 1, 1), score=1.0, name=name)
+        if name == "battle_confirm" and self.state == "confirm":
+            return Match(rect=Rect(1158, 776, 1, 1), score=1.0, name=name)
+        if name == "battle_return_home" and self.state == "result":
+            return Match(rect=Rect(961, 932, 1, 1), score=1.0, name=name)
+        return None
+
+    def tap_match(self, match, offset=(0, 0)):
+        self.taps.append(match.name)
+        if match.name == "scout_cancel":
+            self.state = "confirm"
+        elif match.name == "battle_confirm":
+            self.state = "result"
+        elif match.name == "battle_return_home":
+            self.state = "home"
+
+
+class EnsureHomeBattleTest(unittest.TestCase):
+    def test_ends_scouting_and_confirms(self):
+        ctx = BattleContext()
+        ensure_home(ctx)
+        self.assertEqual(
+            ctx.taps, ["scout_cancel", "battle_confirm", "battle_return_home"]
+        )
+
+    def test_loading_screen_is_detected(self):
+        white = normalize_frame(
+            np.full((1080, 1920, 3), 250, dtype=np.uint8), (1920, 1080)
+        )
+        self.assertTrue(_is_loading(white))
+        dark = normalize_frame(
+            np.full((1080, 1920, 3), 100, dtype=np.uint8), (1920, 1080)
+        )
+        self.assertFalse(_is_loading(dark))
 
 
 class FakeController:

@@ -6,21 +6,12 @@ from dataclasses import dataclass
 from ..context import Context
 from ..errors import BetterCoCError, MissingAssetError, StopRequested, TaskError
 from ..ocr import parse_number
-from ..recovery import reload_if_stopped, restart_game
+from ..recovery import ensure_home, restart_game
 from ..state import read_state, update_state
 from .. import console, resources
 from .base import Task, TaskResult
 from .raid import RaidTask
-from .wall_upgrade import (
-    BATTLE_RETURN,
-    HOME_ATTACK,
-    HOME_DARK,
-    HOME_ELIXIR,
-    HOME_GOLD,
-    HOME_POPUP_CLOSE,
-    SIDE_PANEL_CLOSE,
-    WallUpgradeTask,
-)
+from .wall_upgrade import WallUpgradeTask
 
 
 @dataclass
@@ -279,31 +270,7 @@ class FarmWallTask(Task):
         return upgraded
 
     def _ensure_home(self) -> None:
-        ctx = self.ctx
-        for _ in range(8):
-            screen = ctx.screen()
-            if reload_if_stopped(ctx, screen=screen):
-                continue
-            side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
-            if side_close is not None:
-                ctx.tap_match(side_close)
-                ctx.sleep(0.6)
-                continue
-            popup_close = ctx.find_optional(HOME_POPUP_CLOSE, screen=screen)
-            if popup_close is not None:
-                ctx.tap_match(popup_close)
-                ctx.sleep(0.6)
-                continue
-            returned = ctx.find_optional(BATTLE_RETURN, screen=screen)
-            if returned is not None:
-                ctx.tap_match(returned)
-                ctx.sleep(1.5)
-                continue
-            if ctx.find(HOME_ATTACK, screen=screen) is not None:
-                return
-            ctx.back()
-            ctx.sleep(0.6)
-        raise TaskError("无法回到主界面")
+        ensure_home(self.ctx)
 
     def _read_resources(self) -> tuple[int, int, int]:
         self._last_gold, self._last_elixir, self._last_dark = resources.snapshot()

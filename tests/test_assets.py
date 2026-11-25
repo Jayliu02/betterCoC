@@ -5,6 +5,7 @@ import yaml
 
 from bettercoc.assets import AssetStore
 from bettercoc.errors import ConfigError, MissingAssetError
+from bettercoc.geometry import Rect
 from bettercoc.image import save_image
 from bettercoc.spec import Kind
 from support import make_temp_dir
@@ -63,6 +64,57 @@ class AssetStoreTest(unittest.TestCase):
     def test_validate(self):
         self.assertEqual(self.store.validate(), [])
         self.assertEqual(self.store.missing_files(), [])
+
+    def test_parse_point(self):
+        self.store.entries["tap"] = {
+            "type": "point",
+            "point": [110, 935],
+            "check": {
+                "roi": [60, 1027, 120, 18],
+                "color": [41, 157, 207],
+                "tolerance": 25,
+            },
+        }
+        spec = self.store.recognition("tap")
+        self.assertIs(spec.kind, Kind.POINT)
+        self.assertEqual(spec.point, (110, 935))
+        self.assertIsNotNone(spec.check)
+        self.assertEqual(spec.check.roi, Rect(60, 1027, 120, 18))
+        self.assertEqual(spec.check.colors, ((41, 157, 207),))
+        self.assertEqual(spec.check.tolerance, 25)
+        self.assertEqual(self.store.missing_files(), [])
+
+    def test_parse_point_multiple_colors(self):
+        self.store.entries["tap"] = {
+            "type": "point",
+            "point": [1, 2],
+            "check": {
+                "roi": [10, 10, 20, 20],
+                "color": [[96, 91, 249], [48, 46, 125]],
+                "tolerance": 30,
+            },
+        }
+        spec = self.store.recognition("tap")
+        self.assertEqual(spec.check.colors, ((96, 91, 249), (48, 46, 125)))
+
+    def test_parse_point_without_check(self):
+        self.store.entries["tap"] = {"type": "point", "point": [10, 20]}
+        spec = self.store.recognition("tap")
+        self.assertIsNone(spec.check)
+
+    def test_point_requires_coordinates(self):
+        self.store.entries["bad_point"] = {"type": "point"}
+        with self.assertRaises(ConfigError):
+            self.store.recognition("bad_point")
+
+    def test_point_bad_check(self):
+        self.store.entries["bad_point"] = {
+            "type": "point",
+            "point": [1, 2],
+            "check": {"color": [1, 2, 3]},
+        }
+        with self.assertRaises(ConfigError):
+            self.store.recognition("bad_point")
 
 
 if __name__ == "__main__":

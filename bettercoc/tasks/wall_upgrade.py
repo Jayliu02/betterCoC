@@ -8,16 +8,12 @@ from ..context import Context
 from ..errors import MissingAssetError, StopRequested, TaskError
 from ..geometry import Rect
 from ..ocr import parse_number
-from ..recovery import reload_if_stopped
+from ..recovery import ensure_home
 from ..state import update_state
 from ..state_machine import StateMachine
 from .. import console, resources
 from .base import Task, TaskResult
 
-HOME_ATTACK = "home_attack"
-HOME_POPUP_CLOSE = "home_popup_close"
-SIDE_PANEL_CLOSE = "side_panel_close"
-BATTLE_RETURN = "battle_return_home"
 BUILD_BUTTON = "build_button"
 WALL_ENTRY = "wall_entry"
 HOME_GOLD = "home_gold"
@@ -198,33 +194,7 @@ class WallUpgradeTask(Task):
         return "open"
 
     def _ensure_home(self) -> None:
-        ctx = self.ctx
-        for _ in range(8):
-            if ctx.should_stop():
-                raise StopRequested("已请求停止")
-            screen = ctx.screen()
-            if reload_if_stopped(ctx, screen=screen):
-                continue
-            side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
-            if side_close is not None:
-                ctx.tap_match(side_close)
-                ctx.sleep(0.6)
-                continue
-            popup_close = ctx.find_optional(HOME_POPUP_CLOSE, screen=screen)
-            if popup_close is not None:
-                ctx.tap_match(popup_close)
-                ctx.sleep(0.6)
-                continue
-            returned = ctx.find_optional(BATTLE_RETURN, screen=screen)
-            if returned is not None:
-                ctx.tap_match(returned)
-                ctx.sleep(1.5)
-                continue
-            if ctx.find(HOME_ATTACK, screen=screen) is not None:
-                return
-            ctx.back()
-            ctx.sleep(0.7)
-        raise TaskError("无法回到主界面")
+        ensure_home(self.ctx)
 
     def _read_home_resources(self) -> None:
         self.memory.gold, self.memory.elixir, self.memory.dark = resources.snapshot()
@@ -496,21 +466,7 @@ class WallUpgradeTask(Task):
         return "select"
 
     def _return_home(self) -> None:
-        ctx = self.ctx
-        for _ in range(6):
-            screen = ctx.screen()
-            if reload_if_stopped(ctx, screen=screen):
-                continue
-            side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
-            if side_close is not None:
-                ctx.tap_match(side_close)
-                ctx.sleep(0.6)
-                continue
-            if ctx.find(HOME_ATTACK, screen=screen) is not None:
-                return
-            ctx.back()
-            ctx.sleep(0.6)
-        self._ensure_home()
+        ensure_home(self.ctx, label="主界面")
 
     def _decide(self) -> str:
         ctx = self.ctx

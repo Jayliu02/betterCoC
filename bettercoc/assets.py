@@ -8,7 +8,7 @@ import yaml
 from .errors import ConfigError, MissingAssetError
 from .geometry import Rect
 from .image import load_image
-from .spec import Kind, Recognition
+from .spec import Kind, PointCheck, Recognition
 from .template import Template, build_mask
 
 
@@ -119,6 +119,8 @@ class AssetStore:
             )
         if kind is Kind.DIGITS:
             return Recognition(**common)
+        if kind is Kind.POINT:
+            return self._parse_point(name, options, common)
         return Recognition(
             **common,
             space=str(options.get("space", "hsv")).lower(),
@@ -127,6 +129,40 @@ class AssetStore:
             min_area=int(options.get("min_area", 150)),
             min_ratio=float(options.get("min_ratio", 0.05)),
         )
+
+    def _parse_point(
+        self, name: str, options: dict[str, Any], common: dict[str, Any]
+    ) -> Recognition:
+        raw = options.get("point")
+        try:
+            point = (int(raw[0]), int(raw[1]))
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise ConfigError(
+                f"识别项 {name} 的 point 需要 [x, y]: {raw!r}"
+            ) from exc
+        check = None
+        raw_check = options.get("check")
+        if raw_check is not None:
+            if not isinstance(raw_check, dict):
+                raise ConfigError(f"识别项 {name} 的 check 必须是对象")
+            try:
+                raw_color = raw_check["color"]
+                if raw_color and isinstance(raw_color[0], (list, tuple)):
+                    colors = tuple(
+                        tuple(int(value) for value in color) for color in raw_color
+                    )
+                else:
+                    colors = (tuple(int(value) for value in raw_color),)
+                check = PointCheck(
+                    roi=Rect.from_value(raw_check["roi"]),
+                    colors=colors,
+                    tolerance=int(raw_check.get("tolerance", 25)),
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ConfigError(
+                    f"识别项 {name} 的 check 格式错误: {raw_check!r}"
+                ) from exc
+        return Recognition(**common, point=point, check=check)
 
     def missing_files(self) -> list[str]:
         missing = []

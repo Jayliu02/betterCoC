@@ -65,18 +65,23 @@ ROI：
 
 | 名称 | 类型 | 用途 |
 | --- | --- | --- |
-| `home_attack` | 模板 | 主城“战斗” |
-| `home_popup_close` | 模板 | 欢迎弹窗 X |
-| `side_panel_close` | 模板 | 侧边面板 X |
-| `attack_find_match` | 模板 | 搜索对手 |
-| `army_attack` | 模板 | 军队确认页“进攻！” |
-| `scout_next` | 模板 | 下一个 |
-| `auto_battle` | 模板 | 自动战斗 |
-| `battle_return_home` | 模板 | 回营 |
+| `home_attack` | 固定坐标 | 主城“战斗” |
+| `home_popup_close` | 固定坐标 | 欢迎弹窗 X |
+| `side_panel_close` | 固定坐标 | 侧边面板 X |
+| `exit_cancel` | 固定坐标 | “确定退出”弹窗“取消” |
+| `attack_find_match` | 固定坐标 | 搜索对手 |
+| `army_attack` | 固定坐标 | 军队确认页“进攻！” |
+| `scout_next` | 固定坐标 | 下一个 |
+| `scout_cancel` | 固定坐标 | 结束战斗 |
+| `battle_confirm` | 固定坐标 | “放弃?”确认 |
+| `auto_battle` | 模板 + ROI | 自动战斗（整排按钮会移位） |
+| `battle_return_home` | 固定坐标 | 回营 |
 | `game_stop` | 模板 | 断线弹窗“重新载入游戏” |
 | `loot_gold` / `loot_elixir` / `loot_dark` | 数字 | 资源 |
 
-备用：`scout_cancel`（取消侦察）、`scout_attack` / `battle_end`（手动兜底）、`dialog_ok`、`attack_multiplayer`。
+固定坐标在 `assets.yaml` 里带 `check` 颜色校验时，既能当点击坐标也能确认画面状态；坐标见 [mumu-debug.md](mumu-debug.md)。
+
+备用：`scout_attack` / `battle_end`（手动兜底，模板未校准）、`dialog_ok`、`attack_multiplayer`。
 
 ## 断线重连
 

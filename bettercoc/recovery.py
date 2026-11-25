@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .errors import StopRequested, TaskError
+from .errors import MissingAssetError, StopRequested, TaskError
+from .geometry import Rect
 from .result import Match
 
 if TYPE_CHECKING:
@@ -13,10 +14,97 @@ HOME_ATTACK = "home_attack"
 HOME_POPUP_CLOSE = "home_popup_close"
 SIDE_PANEL_CLOSE = "side_panel_close"
 BATTLE_RETURN = "battle_return_home"
+EXIT_CANCEL = "exit_cancel"
+SCOUT_CANCEL = "scout_cancel"
+BATTLE_CONFIRM = "battle_confirm"
 DEFAULT_TIMEOUT = 90.0
 DEFAULT_PACKAGE = "com.tencent.tmgp.supercell.clashofclans"
 DEFAULT_RESTART_TIMEOUT = 180.0
 POLL_INTERVAL = 2.0
+HOME_ATTEMPTS = 8
+HOME_CLOSERS = (
+    (SIDE_PANEL_CLOSE, 0.6),
+    (HOME_POPUP_CLOSE, 0.6),
+)
+LOADING_ROI = Rect(700, 300, 500, 400)
+
+
+def _is_loading(screen) -> bool:
+    crop = getattr(screen, "crop", None)
+    if crop is None:
+        return False
+    patch = crop(LOADING_ROI)
+    if patch.size == 0:
+        return False
+    flat = patch.reshape(-1, 3).astype("float32")
+    return float(flat.mean()) > 225 and float(flat.std()) < 30
+
+
+def ensure_home(
+    ctx: Context,
+    attempts: int = HOME_ATTEMPTS,
+    label: str = "主界面",
+) -> None:
+    if not ctx.vision.assets.has(HOME_ATTACK):
+        raise MissingAssetError(
+            f"缺少主界面识别项 {HOME_ATTACK}，在 assets.yaml 中补上固定坐标。"
+        )
+    last_screen = None
+    for _ in range(max(1, attempts)):
+        if ctx.should_stop():
+            raise StopRequested("已请求停止")
+        screen = ctx.screen()
+        last_screen = screen
+        if reload_if_stopped(ctx, screen=screen):
+            continue
+        handled = False
+        for name, delay in HOME_CLOSERS:
+            match = ctx.find_optional(name, screen=screen)
+            if match is not None:
+                ctx.logger.info("关闭 %s", name)
+                ctx.tap_match(match)
+                ctx.sleep(delay)
+                handled = True
+                break
+        if handled:
+            continue
+        scout = ctx.find_optional(SCOUT_CANCEL, screen=screen)
+        if scout is not None:
+            confirm = ctx.find_optional(BATTLE_CONFIRM, screen=screen)
+            target = confirm if confirm is not None else scout
+            ctx.logger.info("结束当前侦察/战斗: %s", target.name)
+            ctx.tap_match(target)
+            ctx.sleep(1.2)
+            continue
+        cancel = ctx.find_optional(EXIT_CANCEL, screen=screen)
+        if cancel is not None:
+            ctx.logger.info("关闭退出游戏弹窗")
+            ctx.tap_match(cancel)
+            ctx.sleep(0.8)
+            continue
+        returned = ctx.find_optional(BATTLE_RETURN, screen=screen)
+        if returned is not None:
+            ctx.logger.info("点击回营")
+            ctx.tap_match(returned)
+            ctx.sleep(1.5)
+            continue
+        if ctx.find(HOME_ATTACK, screen=screen) is not None:
+            return
+        if _is_loading(screen):
+            ctx.logger.info("画面切换中，等待")
+            ctx.sleep(1.0)
+            continue
+        ctx.back()
+        ctx.sleep(0.8)
+    ctx.logger.error("连续 %d 次尝试仍未回到%s", attempts, label)
+    try:
+        ctx.save_screenshot("ensure-home-failed", screen=last_screen)
+    except Exception:
+        ctx.logger.exception("保存失败截图出错")
+    raise TaskError(
+        f"{attempts} 次尝试后仍未回到{label}，检查 assets.yaml 中 "
+        f"{HOME_ATTACK} 的坐标与颜色校验"
+    )
 
 
 def reload_if_stopped(ctx: Context, screen=None) -> bool:

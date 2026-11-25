@@ -127,7 +127,47 @@ assets:
 
 `mask_color` 是 BGR。带遮罩时匹配方法会自动从 `ccoeff_normed` 切换到 `ccorr_normed`。
 
-## 4. 颜色项（可选）
+## 4. 固定坐标按钮
+
+按钮位置固定时不要用模板，直接写 `type: point`：
+
+```yaml
+home_attack:
+  type: point
+  point: [110, 935]
+```
+
+坐标是 1920x1080 归一化画面上的点击位置。用截图工具量出按钮中心即可，模拟器分辨率不同会自动换算。
+
+需要知道按钮在不在时，加 `check` 做小区域平均颜色校验：
+
+```powershell
+bettercoc sample --rect 60,1027,120,18 --image runtime/mumu/diag-now.png
+```
+
+把输出的 `BGR 均值` 填进 `check.color`，先给 `tolerance: 25`：
+
+```yaml
+home_attack:
+  type: point
+  point: [110, 935]
+  check:
+    roi: [60, 1027, 120, 18]
+    color: [41, 157, 207]
+    tolerance: 25
+```
+
+校准规则：
+
+- `roi` 只取按钮内部颜色稳定的一小块，避开文字、图标和渐变边缘
+- `tolerance` 越小越严格；先在目标界面 `probe` 确认命中，再在其它界面确认不命中
+- 弹窗背景会整体变暗（约 50%），同一个按钮给两组颜色即可同时匹配正常和变暗状态：`color: [[96,91,249],[48,46,125]]`
+- 换分辨率、语言或 UI 皮肤后重新采样
+- 整排按钮会随状态移位时（侦察页的“自动战斗”），不要用固定坐标，保留模板 + 限定 `roi`
+
+颜色条件不满足时 `find()` 返回未命中，`click()` 会继续等待。没有 `check` 的 point 永远命中，只适合“确定在某个界面后无条件点一下”的按钮。
+
+## 5. 颜色项（可选）
 
 颜色识别用于确认按钮是否可用，例如绿色/金色按钮检测。先采样：
 
@@ -157,7 +197,7 @@ some_button_available:
 
 `min_ratio` 是目标颜色像素占 ROI 的比例。当前 `raid` 和 `wall_upgrade` 都直接依赖模板和数字识别，不使用颜色项。
 
-## 5. OCR
+## 6. OCR
 
 文本 OCR 用于配置了 `type: ocr` 的识别项。资源数量默认由数字模板读取，不需要 Tesseract。
 
@@ -198,7 +238,7 @@ bettercoc recognize loot_gold --image runtime/shots/scout.png
 
 OCR 不可用时文本识别项不可用；资源数量由 `assets/digits` 数字模板读取，不受影响。
 
-## 6. 数字模板
+## 7. 数字模板
 
 `raid` 用 `assets/digits` 读取侦察界面左上角的金币、圣水和暗黑，不依赖 Tesseract。
 
@@ -224,7 +264,7 @@ bettercoc --config config/mumu.yaml probe --image runtime/mumu/scout.png
 
 `loot_gold`、`loot_elixir`、`loot_dark` 应输出正确数字。数字 ROI 里出现图标时，识别器会按连通域的纵向位置剔除离群项。
 
-## 7. 自动战斗
+## 8. 自动战斗
 
 `raid` 默认点侦察界面的“自动战斗”，不需要手动下兵坐标。
 
@@ -249,7 +289,7 @@ army:
   waves: 1
 ```
 
-## 8. 城墙升级
+## 9. 城墙升级
 
 城墙入口在“建造”面板里，不需要点地图上的墙：
 
@@ -261,11 +301,11 @@ army:
 6. 金币/圣水按钮位置固定在 `[487,930]`、`[707,930]`
 7. 确认页点“确定”
 
-需要校准 `build_button`、`wall_entry`、`wall_more`、`wall_add_10`、`wall_add_1`、`wall_confirm`，以及 `home_gold/elixir/dark`、`wall_cost_gold/elixir` 数字 ROI。
+主城“建造”是固定坐标 `build_button`，城墙入口 `wall_entry` 仍需模板匹配（位置随滚动变化），升墙数量/金币/圣水/确定按钮坐标在 `config/*.yaml` 的 `task.wall_upgrade` 里。还需要 `home_gold/elixir/dark`、`wall_cost_gold/elixir` 的数字 ROI。
 
 完整说明见 [wall-loop.md](wall-loop.md)。
 
-## 9. 验证
+## 10. 验证
 
 ### doctor
 
@@ -309,7 +349,7 @@ bettercoc run --trace
 
 先设置 `max_cycles: 1`，观察一轮完整流程。确认资源消耗、兵种部署、回主城都正常后，再增加轮数。
 
-## 10. 常见问题
+## 11. 常见问题
 
 ### 模板匹配分数很高但点错位置
 

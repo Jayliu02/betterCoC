@@ -5,19 +5,16 @@ from dataclasses import dataclass
 from ..context import Context
 from ..errors import MissingAssetError, OcrUnavailable, StopRequested, TaskError
 from ..ocr import parse_number
-from ..recovery import reload_if_stopped
+from ..recovery import ensure_home, reload_if_stopped
 from ..state_machine import StateMachine
 from .base import Task, TaskResult
 
 HOME_ATTACK = "home_attack"
-HOME_POPUP_CLOSE = "home_popup_close"
-SIDE_PANEL_CLOSE = "side_panel_close"
 ATTACK_MULTIPLAYER = "attack_multiplayer"
 ATTACK_FIND_MATCH = "attack_find_match"
 ARMY_ATTACK = "army_attack"
 SCOUT_NEXT = "scout_next"
 SCOUT_ATTACK = "scout_attack"
-SCOUT_CANCEL = "scout_cancel"
 AUTO_BATTLE = "auto_battle"
 BATTLE_END = "battle_end"
 BATTLE_RETURN = "battle_return_home"
@@ -144,43 +141,7 @@ class RaidTask(Task):
         return "raid"
 
     def _ensure_home(self) -> None:
-        ctx = self.ctx
-        if not ctx.vision.assets.has(HOME_ATTACK):
-            raise MissingAssetError(
-                f"缺少主界面识别项 {HOME_ATTACK}，先用 `bettercoc assets add` 校准主界面的战斗按钮。"
-            )
-        for attempt in range(8):
-            if ctx.should_stop():
-                raise StopRequested("已请求停止")
-            screen = ctx.screen()
-            if reload_if_stopped(ctx, screen=screen):
-                continue
-            returned = ctx.find_optional(BATTLE_RETURN, screen=screen)
-            if returned is not None:
-                ctx.tap_match(returned)
-                ctx.sleep(0.8)
-                continue
-            side_close = ctx.find_optional(SIDE_PANEL_CLOSE, screen=screen)
-            if side_close is not None:
-                ctx.tap_match(side_close)
-                ctx.sleep(0.6)
-                continue
-            popup_close = ctx.find_optional(HOME_POPUP_CLOSE, screen=screen)
-            if popup_close is not None:
-                ctx.tap_match(popup_close)
-                ctx.sleep(0.6)
-                continue
-            if ctx.find(HOME_ATTACK, screen=screen) is not None:
-                return
-            handled = False
-            match = ctx.find_optional(DIALOG_OK, screen=screen)
-            if match is not None:
-                ctx.tap_match(match)
-                handled = True
-            if not handled:
-                ctx.back()
-            ctx.sleep(0.8)
-        raise TaskError("连续 8 次仍无法回到主界面，检查模拟器分辨率或主界面模板。")
+        ensure_home(self.ctx)
 
     def _raid(self) -> str:
         ctx = self.ctx
@@ -202,7 +163,16 @@ class RaidTask(Task):
             return "decide"
         if self.auto_battle and ctx.vision.assets.has(AUTO_BATTLE):
             ctx.logger.info("使用自动战斗")
-            ctx.click(AUTO_BATTLE, timeout=8)
+            auto = ctx.try_wait(AUTO_BATTLE, timeout=8, interval=0.4)
+            if auto is None:
+                ctx.logger.error("侦察界面没有自动战斗按钮，结束本次侦察")
+                self._cancel_scout()
+                raise TaskError(
+                    "自动战斗不可用：侦察界面没有 auto_battle 按钮。"
+                    "请在游戏内确认自动战斗是否开启，"
+                    "或在 config 里配置手动下兵坐标（troop_slots / deploy_points）。"
+                )
+            ctx.tap_match(auto)
             self._wait_battle_result(self.battle_timeout)
             self.memory.raids += 1
             ctx.logger.info("第 %d 次进攻结束", self.memory.raids)
@@ -224,11 +194,7 @@ class RaidTask(Task):
 
     def _cancel_scout(self) -> None:
         ctx = self.ctx
-        if ctx.vision.assets.has(SCOUT_CANCEL):
-            ctx.click_if_present(SCOUT_CANCEL, timeout=3)
-        else:
-            ctx.back()
-        ctx.sleep(1.0)
+        ctx.logger.info("结束当前侦察并回到主界面")
         self._ensure_home()
 
     def _maybe_next(self) -> bool:

@@ -19,13 +19,18 @@ def annotate_matches(
             else (int(base_color[0]), int(base_color[1] * 0.7), 255)
         )
         rect = match.rect
-        cv2.rectangle(
-            canvas,
-            (rect.x, rect.y),
-            (max(rect.x, rect.right - 1), max(rect.y, rect.bottom - 1)),
-            color,
-            3,
-        )
+        if rect.width <= 1 and rect.height <= 1:
+            cv2.circle(canvas, (rect.x, rect.y), 12, color, 2)
+            cv2.line(canvas, (rect.x - 18, rect.y), (rect.x + 18, rect.y), color, 2)
+            cv2.line(canvas, (rect.x, rect.y - 18), (rect.x, rect.y + 18), color, 2)
+        else:
+            cv2.rectangle(
+                canvas,
+                (rect.x, rect.y),
+                (max(rect.x, rect.right - 1), max(rect.y, rect.bottom - 1)),
+                color,
+                3,
+            )
         label = f"{match.name} {match.score:.2f}"
         if match.text:
             label += f" {match.text}"

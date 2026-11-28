@@ -86,6 +86,24 @@ assets:
     threshold: 0.8
     grayscale: false
     roi: [800, 730, 820, 140]
+  treasure_chest:
+    file: treasure_chest.png
+    threshold: 0.8
+    grayscale: true
+    roi: [700, 800, 520, 190]
+  treasure_chest_hint:
+    file: treasure_chest_hint.png
+    threshold: 0.8
+    grayscale: true
+    roi: [800, 140, 330, 140]
+  chest_continue:
+    type: color
+    space: hsv
+    roi: [400, 780, 1100, 300]
+    lower: [35, 120, 100]
+    upper: [85, 255, 255]
+    min_area: 8000
+    min_ratio: 0.02
   battle_confirm:
     type: point
     point: [1158, 776]
@@ -121,9 +139,29 @@ assets:
     file: wall_entry.png
     threshold: 0.8
     grayscale: false
+  wall_row_label:
+    file: wall_row_label.png
+    threshold: 0.8
+    grayscale: false
+    scales:
+    - 0.9
+    - 1.0
+    - 1.1
+  wall_entry_15:
+    file: wall_entry_15.png
+    threshold: 0.8
+    grayscale: false
+  wall_entry_16:
+    file: wall_entry_16.png
+    threshold: 0.8
+    grayscale: false
   wall_more:
     file: wall_more.png
     threshold: 0.9
+  wall_batch_remove:
+    file: wall_batch_remove.png
+    threshold: 0.7
+    roi: [350, 720, 300, 200]
   wall_add_10:
     file: wall_add_10.png
     threshold: 0.9
@@ -163,17 +201,17 @@ assets:
   wall_cost_gold:
     type: digits
     roi:
-    - 400
-    - 870
-    - 210
-    - 45
+    - 405
+    - 865
+    - 165
+    - 55
   wall_cost_elixir:
     type: digits
     roi:
-    - 620
-    - 870
-    - 210
-    - 45
+    - 625
+    - 865
+    - 165
+    - 55
   max_label:
     file: max_label.png
     threshold: 0.9

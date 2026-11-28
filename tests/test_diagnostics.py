@@ -195,7 +195,7 @@ class ReplayTest(unittest.TestCase):
     def test_replay_reproduces_recorded_results(self):
         data = self.session.run(self.vision)
         self.assertEqual(data["summary"]["frames"], 2)
-        self.assertEqual(data["summary"]["checks"], 60)
+        self.assertEqual(data["summary"]["checks"], 74)
         self.assertEqual(data["summary"]["comparisons"], 6)
         self.assertEqual(data["mismatches"], [])
         self.assertFalse(data["assets_changed"])
@@ -214,7 +214,7 @@ class ReplayTest(unittest.TestCase):
             for check in frame["checks"]
         ]
         self.assertEqual(first_scores, second_scores)
-        self.assertEqual(len(first_scores), 60)
+        self.assertEqual(len(first_scores), 74)
 
     def test_replay_frames_are_fresh_and_typed(self):
         frames = self.session.frames()

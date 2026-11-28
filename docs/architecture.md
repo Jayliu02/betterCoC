@@ -387,12 +387,12 @@ class MyTask(Task):
 
 ```python
 if full:
-    result = WallUpgradeTask(max_upgrades=remaining_walls, batch_size=0).run(ctx)
+    result = WallUpgradeTask(max_upgrades=0, batch_size=0).run(ctx)
 else:
     result = RaidTask(max_cycles=1).run(ctx)
 ```
 
-子任务返回自己的计数，`farm_wall` 汇总进攻次数、升级数量、金币/圣水消耗，并维护 `walls_done` 状态。两个子任务都可以单独运行。
+`WallUpgradeTask` 以建造栏读到的可升级数量为准，读到 0 时返回 `wall_complete=1`。`farm_wall` 汇总进攻次数、升级数量、金币/圣水消耗，并根据这个观测结果决定是否结束，不维护固定总城墙数。两个子任务都可以单独运行。
 
 ### 定位器用法
 

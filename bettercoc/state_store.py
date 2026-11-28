@@ -18,6 +18,8 @@ LEGACY_FIELDS = (
     "elixir_max",
     "dark_max",
     "wall_remaining",
+    "wall_upgraded",
+    "wall_complete",
     "walls_done",
     "updated_at",
 )

@@ -35,11 +35,11 @@ task:
     max_errors: 3
     match_timeout: 45
     battle_start_timeout: 45
-    battle_timeout: 240
+    battle_timeout: 360
     result_timeout: 20
     end_battle_after_deploy: true
     loot_check: true
-    min_total: 2000000
+    min_total: 1000000
     max_next: 15
     min_gold: 0
     min_elixir: 0
@@ -51,8 +51,9 @@ task:
       waves: 1
       tap_delay_ms: 120
   wall_upgrade:
-    max_upgrades: 10
+    max_upgrades: 0
     batch_size: 10
+    max_batch: 9
     max_cycles: 10
     max_runtime_min: 15
     max_errors: 2
@@ -70,8 +71,7 @@ task:
   farm_wall:
     full_gold: 1
     full_elixir: 1
-    total_walls: 300
-    walls_done: 13
     wall_batch: 0
     max_cycles: 1
     max_runtime_min: 0
+    farm_after_complete: false

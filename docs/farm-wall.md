@@ -1,29 +1,15 @@
 # 打资源 + 升墙 farm_wall
 
-## 初始判断
-
-进入主循环前先看金币 + 圣水的总和：
-
-```text
-资源限值 = GOLD_MAX + ELIXIR_MAX
-阈值 = 资源限值 × threshold_ratio（默认 0.9）
-```
-
-1. 总和超过阈值：先执行一次 `wall_upgrade`；此时城墙已经升满就直接退出
-2. 总和未超过阈值：先打一轮资源，再升墙
-3. 之后重复“打资源 → 升墙”，直到没有可升级城墙
-4. 城墙升满后，继续打资源，直到总和超过阈值
-
-资源上限来自点击资源图标读到的“最大储量”，读取失败时用 `full_gold`、`full_elixir` 兜底。
-
 ## 目标
 
 把 `raid` 和 `wall_upgrade` 串成一个循环：
 
-1. 初始资源总和超过 90%：先升墙，城墙满则退出
-2. 否则先打资源，再升墙
-3. 循环“打资源 → 升墙”，直到城墙剩余为 0
-4. 最后打资源，直到金币 + 圣水总和超过 90%
+1. 初始资源总和超过阈值：先执行一次 `wall_upgrade`
+2. 否则先打一轮资源，再升墙
+3. 重复“打资源 → 升墙”，直到 `wall_upgrade` 读到“没有可升级城墙”
+4. 默认到此结束；`farm_after_complete: true` 时再继续打资源到阈值
+
+是否升满只由游戏界面决定，不用配置的总城墙数推算。不同大本营城墙数量不同、存在多个城墙等级时都不需要改配置。
 
 任务名：`farm_wall`，实现：[bettercoc/tasks/farm_wall.py](../bettercoc/tasks/farm_wall.py)。
 
@@ -31,9 +17,39 @@
 bettercoc --config config/mumu.yaml run --task farm_wall --trace
 ```
 
+## 调度
+
+```text
+读取初始资源
+    │
+    ├── 总和 > 阈值：先升墙 ──> 已无城墙？──> 结束
+    │
+    └── 循环：
+         打一轮资源
+           │
+         升墙（WallUpgradeTask，max_upgrades=0）
+           │
+         读到“无可升级城墙”？──> 结束
+           │
+         否：继续下一轮
+```
+
+`wall_upgrade` 每次运行会一直升到资源不足、达到循环上限或读到没有城墙为止；`farm_wall` 只负责在资源不足时去打资源，然后再次调用它。
+
+## 完成判断
+
+`farm_wall` 不再使用 `total_walls`、`walls_done`。完成条件是 `wall_upgrade` 返回的观测结果：
+
+- `wall_remaining == 0`：识别到的城墙行显示没有可升级城墙
+- `wall_complete == 1`：所有城墙行读数为 0，或数量未知且批量界面连续打不开
+
+找不到城墙行时 `wall_upgrade` 会报错，`farm_wall` 按失败处理，不会把“模板没匹配到”当成城墙已升满。
+
+状态文件里如果还保留历史的 `wall_remaining` / `wall_complete`，只用于 CMD 显示，不参与本轮完成判断。每次运行都会重新进入建造栏读取，升级大本营后不会因为历史“已完成”而跳过。
+
 ## 卡住自动重进
 
-资源足够、还有剩余城墙，但 `wall_upgrade` 一次也没有升级成功时，`farm_wall` 会强制退出并重新启动游戏：
+资源足够、还有可升级城墙，但 `wall_upgrade` 一次也没有升级成功时，`farm_wall` 会强制退出并重新启动游戏：
 
 1. `am force-stop` 关闭游戏进程
 2. `monkey` 重新启动
@@ -50,9 +66,11 @@ task:
     max_restarts: 5
 ```
 
-达到 `max_restarts` 仍无法升级时退出。实测重进并关闭开屏弹窗耗时 19 秒。
+游戏包名以实际配置为准。达到 `max_restarts` 仍无法升级时退出。实测重进并关闭开屏弹窗耗时 19 秒。
 
-`max_runtime_min` 按每个任务实例计时，不使用进程总运行时间。此前连续运行超过 15 分钟后，内层 `wall_upgrade` 会误判超时并立即退出，表现就是“资源已满但无法继续升级城墙”。
+“资源是否足够”优先使用 `wall_upgrade` 本次读到的单段成本；还没有读到成本时用 `task.wall_upgrade.cost_per_wall` 兜底。不同等级的城墙成本不同，所以第一次升墙后会用实际读数。
+
+`max_runtime_min` 按每个任务实例计时，不使用进程总运行时间。
 
 ## 全局资源变量
 
@@ -74,7 +92,7 @@ MAX_LOADED = False
 1. 回主城，关闭侧边栏和欢迎弹窗
 2. 用双指 pinch 缩小视角到最小
 3. 截图读取 `home_gold`、`home_elixir`、`home_dark`
-4. 点击金币、圣水、暗黑，读取提示里的“最大储量”
+4. 依次点击金币、圣水、暗黑，读取提示里的“最大储量”；每次读取后先关闭提示，避免上一个弹窗挡住下一个资源
 5. 失败重试；最大储量读取失败时用配置兜底
 6. 写入 `runtime/resource-state.json`
 
@@ -95,9 +113,16 @@ MAX_LOADED = False
 | 金币 234,789 / 10,000,000
 | 圣水 9,400,000 / 10,000,000
 | 暗黑 207,500 / 200,000
-| 城墙 剩余 237 / 300   已升级 63        |
-| 升级城墙 4 段                               |
+| 城墙 可升级 237 段
+| 本次升级 63 段
+| 升级城墙 4 段
 +------------------------------------------+
+```
+
+没有可升级城墙时显示：
+
+```text
+| 城墙 已无可升级项
 ```
 
 单独查看：
@@ -124,21 +149,15 @@ bettercoc --config config/mumu.yaml status --live
 
 ## 判断“还有城墙”
 
-进入建造栏，城墙行会显示剩余可升级数量，例如：
+进入建造栏，城墙行会显示当前可升级的那一组城墙数量，例如：
 
 ```text
 城墙 x237
 ```
 
-`wall_upgrade` 在点击城墙入口前读取这个数字，作为 `wall_remaining` 返回。
+`wall_upgrade` 在点击城墙入口前读取这个数字，作为 `wall_remaining`。读到 0 或列表里没有城墙入口，就是“没有可升级城墙”。
 
-已升级数量：
-
-```text
-walls_done = total_walls - wall_remaining + 本次升级数量
-```
-
-默认 `total_walls: 300`。读到剩余数量后会校准状态文件，避免历史计数漂移。
+存在多个等级时，某一等级升完后下一次会读到下一等级的数量，因此每次升级后都重新读一次，不做 `总数 - 已完成` 的推算。
 
 ## 计算最大升级数量
 
@@ -157,10 +176,10 @@ walls_done = total_walls - wall_remaining + 本次升级数量
 本次批量：
 
 ```text
-batch = min(剩余城墙, 可升级数量)
+batch = min(城墙数量, 可升级数量, batch_size, max_upgrades 剩余, 30)
 ```
 
-`wall_batch: 0` 表示不额外限制，直接按资源计算最大数量。当前 7,500,000 金币、7,491,186 圣水、单价 600,000 时：
+`wall_batch: 0` 表示不额外限制。当前 7,500,000 金币、7,491,186 圣水、单价 600,000 时：
 
 ```text
 当前资源可升级 12 段
@@ -181,20 +200,23 @@ batch = min(剩余城墙, 可升级数量)
   "gold_max": 10000000,
   "elixir_max": 10000000,
   "dark_max": 200000,
-  "walls_done": 63,
+  "wall_remaining": 237,
+  "wall_upgraded": 63,
+  "wall_complete": false,
   "wall_upgrades": 4,
-  "wall_remaining": 237
+  "farm_cycles": 7,
+  "farm_raids": 7,
+  "farm_wall_upgrades": 20
 }
 ```
-
-字段：
 
 | 字段 | 说明 |
 | --- | --- |
 | `gold` / `elixir` / `dark` | 最近一次读取的主城资源 |
-| `walls_done` | 已升级城墙数量，读城墙行后校准 |
+| `wall_remaining` | 最近一次读到的可升级数量 |
+| `wall_upgraded` | 本次调度内升级数量 |
+| `wall_complete` | 是否已读到“没有可升级城墙” |
 | `wall_upgrades` | 最近一次 `wall_upgrade` 升级数量 |
-| `wall_remaining` | 最近一次读到的城墙行剩余数量 |
 | `farm_cycles` | 调度循环数 |
 | `farm_raids` | 调度内进攻次数 |
 | `farm_wall_upgrades` | 调度内升级城墙数量 |
@@ -206,14 +228,13 @@ task:
   farm_wall:
     full_gold: 10000000
     full_elixir: 10000000
-    total_walls: 300
     wall_batch: 0
     max_cycles: 0
     max_runtime_min: 0
     max_restarts: 5
     threshold_ratio: 0.9
     max_raid_retries: 3
-    max_resource: 20000000
+    farm_after_complete: false
     state_file: runtime/resource-state.json
 ```
 
@@ -221,25 +242,27 @@ task:
 | --- | --- | --- |
 | `full_gold` | 10000000 | 金币满值兜底 |
 | `full_elixir` | 10000000 | 圣水满值兜底 |
-| `total_walls` | 300 | 总城墙数 |
-| `wall_batch` | 0 | 0 表示按资源算最大数量 |
-| `max_cycles` | 0 | 0 表示不限制，直到流程结束 |
+| `wall_batch` | 0 | 0 表示按资源和城墙数量算最大批次 |
+| `max_cycles` | 0 | 0 表示不限制，直到没有可升级城墙 |
 | `max_runtime_min` | 0 | 0 表示不限制；需要停止时 Ctrl+C |
 | `max_restarts` | 5 | 卡住时最多重进游戏几次，0 表示不限制 |
 | `threshold_ratio` | 0.9 | 资源总和阈值比例 |
 | `max_raid_retries` | 3 | 连续 0 进攻次数的重试上限 |
+| `farm_after_complete` | false | 城墙升满后是否继续打资源到阈值 |
 | `max_resource` | 20000000 | 资源读数上限，超过认为仍在结算动画 |
 
 内层 `raid`、`wall_upgrade` 的 `max_runtime_min` 按各自任务实例计时；整体运行时长用 `farm_wall.max_runtime_min` 控制。
 
 ## 实测
 
+以下是旧版固定总数流程的 MuMu 运行记录，资源与按钮部分仍然有效；新的“按建造读数结束”循环尚未真机验证。
+
 2026-11-24 一次完整运行：
 
 ```text
 7 次进攻
 最后 20 段：16 段金币 + 1 段圣水
-城墙剩余 0，累计 300/300
+城墙剩余 0
 ```
 
 状态文件：
@@ -247,16 +270,14 @@ task:
 ```text
 farm_raids: 7
 farm_wall_upgrades: 20
-walls_done: 300
 wall_remaining: 0
+wall_complete: true
 ```
-
-新调度下，城墙升满后还会继续打资源，直到金币 + 圣水总和超过 18,000,000 才退出。
 
 ## 注意
 
 - 资源阈值按当前大本营储量配置；升级大本营后需要调整
-- 城墙总数按 300 配置；不同大本营可能不同
-- 城墙行数量是当前等级可升级数量，全部满级后会显示剩余 0
+- 城墙是否升满按界面读数判断，不再配置总城墙数
+- 城墙行数量是当前可升级组的数量；一组升完后会读到下一组
 - 单段成本从界面读取，金币/圣水分别计算
 - 结算动画期间资源读数可能异常，代码会等待、限制上限并回退上一次有效值

@@ -5,8 +5,8 @@
 当前包含三个任务：
 
 - `raid`：搜索对手、按资源阈值筛选、自动战斗、回营循环。已完成 MuMu 实测。
-- `wall_upgrade`：城墙升级，已完成。主界面“建造” → 滑动建造栏 → 城墙 → 批量选择 → 比较金币/圣水余额 → 确认升级。
-- `farm_wall`：组合调度。按资源总和阈值决定先升墙还是先打资源，循环到城墙升满，最后打资源到阈值。
+- `wall_upgrade`：城墙升级，已实现。主界面“建造” → 滑动建造栏 → 读取城墙可升级数量 → 批量选择 → 比较金币/圣水余额 → 确认升级，重复到数量为 0。新循环待 MuMu 实测。
+- `farm_wall`：组合调度。按资源总和阈值决定先升墙还是先打资源，循环到建造栏没有可升级城墙。
 
 ![模拟器主界面](docs/images/demo-home.png)
 
@@ -23,8 +23,9 @@
 - 资源清单：YAML 声明式识别项，模板懒加载
 - 运行时：等待、点击、随机抖动、dry-run、停止信号
 - `raid`：状态机、错误恢复、资源筛选、自动战斗、循环上限
-- `wall_upgrade`：建造栏入口、滑动查找、批量 +10/+1、金币/圣水余额对比、确认升级、资源状态文件
-- `farm_wall`：按资源总和阈值决定先升墙或先打资源，循环到城墙升满，最后把资源补到阈值的 90%
+- `wall_upgrade`：建造栏入口、滑动查找、按界面读数计算批量、金币/圣水余额对比、确认升级、资源状态文件
+- `farm_wall`：按资源总和阈值决定先升墙或先打资源，循环到建造栏没有可升级城墙
+- 不配置总城墙数；城墙数量随大本营变化、存在多个等级时逐组升到数量为 0
 - 运行到建造-城墙栏不再有可升级城墙为止
 - 内置模拟器 `demo`，无需游戏即可跑攻击循环
 - MuMu 实测：ADB 自动重连、实时截图、真实自动战斗、回营
@@ -123,10 +124,11 @@ prepare ──> raid ──> decide ──> raid ...
 6. 读取左上角金币、圣水、暗黑
 7. 金币 + 圣水 < `min_total` 时点“下一个”，最多 `max_next` 次
 8. 达标后点“自动战斗”
-9. 等待结算，点“回营”
-10. 累计轮数，继续或结束
+9. 等待结算，点“回营”或宝箱活动的“领取奖励”
+10. 出现宝箱界面时点宝箱 4 次，等 5 秒后点“继续”
+11. 累计轮数，继续或结束
 
-实测规则：金币 + 圣水 ≥ 2,000,000 才进攻。数字识别由 `assets/digits` 的模板完成，一帧内读完三个数字并立即点击，避免 30 秒侦察倒计时超时。最终实测一轮：第一个目标 184 万被跳过，第二个目标 246 万通过，读取与点击自动战斗在同一秒完成。
+实测规则：金币 + 圣水 ≥ 1,000,000 才进攻。数字识别由 `assets/digits` 的模板完成，一帧内读完三个数字并立即点击，避免 30 秒侦察倒计时超时。宝箱界面由 `treasure_chest` / `treasure_chest_hint` 识别，绿色“继续”按钮由 `chest_continue` 颜色定位。
 
 细节见 [docs/raid.md](docs/raid.md)。
 
@@ -169,6 +171,8 @@ home_attack:
 | `auto_battle` | 模板 | 侦察“自动战斗”，整排按钮会随状态移位，所以限制在 `roi: [800,730,820,140]` 内匹配 |
 | `game_stop` | 模板 | 断线弹窗“重新载入游戏” |
 | `wall_entry` | 模板 | 建造栏里的城墙图标（位置随滚动变化） |
+| `wall_entry_15` / `wall_entry_16` | 模板 | 两种城墙等级的图标，文字模板失效时备用 |
+| `wall_row_label` | 模板 | 城墙行文字“城墙 x”，不随城墙等级变化，优先用它找行 |
 | `max_label` | 模板 | 资源上限弹窗 |
 
 数字项：
@@ -198,12 +202,13 @@ task:
     max_errors: 3
     match_timeout: 45
     battle_start_timeout: 45
-    battle_timeout: 240
+    battle_timeout: 360
     result_timeout: 20
     loot_check: true
-    min_total: 2000000
+    min_total: 1000000
     max_next: 15
     auto_battle: true
+    open_chest: true
     army:
       troop_slots: []
       deploy_points: []
@@ -212,10 +217,11 @@ task:
 | 配置 | 说明 |
 | --- | --- |
 | `task.raid.max_cycles` | 进攻轮数，0 表示只受时长限制 |
-| `task.raid.min_total` | 金币 + 圣水最低值，默认 200 万 |
+| `task.raid.min_total` | 金币 + 圣水最低值，默认 100 万 |
 | `task.raid.max_next` | 最多换多少个对手 |
 | `task.raid.loot_check` | 是否读取资源并筛选 |
 | `task.raid.auto_battle` | 是否点“自动战斗” |
+| `task.raid.open_chest` | 出现宝箱时是否自动开箱 |
 | `task.raid.battle_timeout` | 等待战斗结束的超时 |
 | `task.raid.army` | 手动下兵兜底坐标 |
 
@@ -228,14 +234,16 @@ task:
 1. `prepare`：回主城，关闭侧边栏/欢迎弹窗
 2. 读取主城右上角金币、圣水、暗黑，写入 `runtime/resource-state.json`
 3. 点击右下角“建造”
-4. 在“建筑和英雄”列表上下滑动，找到“城墙”入口
-5. 点击入口，进入城墙升级界面
-6. 点击“升级更多”，进入批量选择
-7. 读取每段成本，按金币/圣水余额计算能升几段
+4. 在“建筑和英雄”列表里先滑到顶部，再向下找城墙行；优先用文字模板 `wall_row_label`，城墙图标会随等级变化
+5. 逐个读取城墙行右侧的可升级数量；识别到的行全部为 0 才结束，找不到行会报错而不是误判完成
+6. 优先选数量大于 0 的行，点击入口，点“升级更多”，用 `wall_add_1` / `wall_add_10` 确认批量界面已打开
+7. 读取每段成本，按金币/圣水余额和城墙数量计算批次
 8. 用“添加城墙 +10 / +1”选到目标数量
-9. 优先金币，金币不足时改用圣水
+9. 金币够就用金币，否则用圣水
 10. 点击升级，确认，扣减内存中的资源
-11. 回主城，继续下一批，直到达到 `max_upgrades` 或资源不足
+11. 重新读一次城墙数量，继续下一批，直到读到 0、资源不足或达到限制
+
+不配置总城墙数，也不假设所有城墙同等级。建造栏可能同时出现多行不同等级的城墙；任务会扫描所有行，优先升数量大于 0 的行，升完一组后继续选下一组，直到所有行都为 0。
 
 实测：
 
@@ -246,13 +254,20 @@ task:
 ```yaml
 task:
   wall_upgrade:
-    max_upgrades: 10
+    max_upgrades: 0
     batch_size: 10
+    unknown_batch_size: 10
+    max_walls: 500
     cost_per_wall: 600000
     prefer_currency: auto
+    remaining_offset: [115, -19, 120, 50]
+    icon_remaining_offset: [115, -14, 120, 45]
+    complete_on_no_batch: true
     gold_button: [487, 930]
     elixir_button: [707, 930]
 ```
+
+`max_upgrades: 0` 表示只受资源和城墙数量限制。`unknown_batch_size` 用于读不到数量时的小批量保护。
 
 运行：
 
@@ -266,14 +281,14 @@ bettercoc --config config/mumu.yaml run --task wall_upgrade --trace
 
 ## 打资源 + 升墙 farm_wall
 
-目标：把城墙全部升满，最后把资源补到阈值。
+目标：反复“打资源 → 升墙”，直到建造栏没有可升级城墙。
 
 调度逻辑：
 
-1. 初始读取资源：金币 + 圣水总和超过“资源限值 × 90%”时，直接先升墙；此时城墙已满则退出
+1. 初始读取资源：金币 + 圣水总和超过“资源限值 × 90%”时，直接先升墙
 2. 否则先打一轮资源，再升墙
-3. 重复“打资源 → 升墙”，直到没有可升级城墙
-4. 城墙升满后，继续打资源，直到金币 + 圣水总和超过“资源限值 × 90%”
+3. 重复“打资源 → 升墙”，直到 `wall_upgrade` 读到没有可升级城墙
+4. 默认结束；`farm_after_complete: true` 时再继续打资源到阈值
 
 资源限值取 `GOLD_MAX + ELIXIR_MAX`，未读取上限时用 `full_gold + full_elixir`；阈值比例由 `threshold_ratio` 控制。
 
@@ -282,16 +297,16 @@ task:
   farm_wall:
     full_gold: 10000000
     full_elixir: 10000000
-    total_walls: 300
     wall_batch: 0
     threshold_ratio: 0.9
     max_cycles: 0
     max_runtime_min: 0
     max_restarts: 5
     max_raid_retries: 3
+    farm_after_complete: false
 ```
 
-`wall_batch: 0` 表示按资源计算最大数量。
+`wall_batch: 0` 表示按资源和城墙数量计算最大批次。
 
 运行：
 
@@ -345,8 +360,9 @@ bettercoc --config config/mumu.yaml status --live
 | 金币 234,789 / 10,000,000
 | 圣水 9,400,000 / 10,000,000
 | 暗黑 207,500 / 200,000
-| 城墙 剩余 237 / 300   已升级 63        |
-| 升级城墙 4 段                               |
+| 城墙 可升级 237 段
+| 本次升级 63 段
+| 升级城墙 4 段
 +------------------------------------------+
 ```
 

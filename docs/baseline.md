@@ -5,6 +5,8 @@
 > 复现命令：`python -m bettercoc --config config/mumu.yaml baseline --iterations 100 --adb-iterations 100`
 > 结论：现有 66 个测试全部通过；新增 12 个基线测试后共 78 个通过；固定测试集 32 帧 / 107 项标注，
 > 106 项符合预期，1 项为已记录的误检缺陷。ADB 截图是识别周期的主要瓶颈（P50 639ms，约占 90%）。
+>
+> 2026-11-26 增补 `wall_row_label.png`、`wall_entry_15.png`、`wall_entry_16.png` 后资源清单为 33 项、模板 23 个；下文的数量与哈希是增补前的基线记录，识别结论未重新测量。
 
 ## 1. 环境与版本
 

@@ -17,6 +17,15 @@ BATTLE_RETURN = "battle_return_home"
 EXIT_CANCEL = "exit_cancel"
 SCOUT_CANCEL = "scout_cancel"
 BATTLE_CONFIRM = "battle_confirm"
+TREASURE_CHEST = "treasure_chest"
+TREASURE_CHEST_HINT = "treasure_chest_hint"
+CHEST_CONTINUE = "chest_continue"
+CHEST_POINT = (960, 540)
+CHEST_CONTINUE_POINT = (961, 932)
+CHEST_TAPS = 4
+CHEST_TAP_DELAY = 0.7
+CHEST_WAIT = 5.0
+CHEST_CONTINUE_TIMEOUT = 10.0
 DEFAULT_TIMEOUT = 90.0
 DEFAULT_PACKAGE = "com.tencent.tmgp.supercell.clashofclans"
 DEFAULT_RESTART_TIMEOUT = 180.0
@@ -56,6 +65,8 @@ def ensure_home(
         screen = ctx.screen()
         last_screen = screen
         if reload_if_stopped(ctx, screen=screen):
+            continue
+        if _open_treasure_chest(ctx):
             continue
         handled = False
         for name, delay in HOME_CLOSERS:
@@ -105,6 +116,44 @@ def ensure_home(
         f"{attempts} 次尝试后仍未回到{label}，检查 assets.yaml 中 "
         f"{HOME_ATTACK} 的坐标与颜色校验"
     )
+
+
+def _open_treasure_chest(ctx: Context) -> bool:
+    if not (
+        ctx.vision.assets.has(TREASURE_CHEST)
+        or ctx.vision.assets.has(TREASURE_CHEST_HINT)
+    ):
+        return False
+    visible = any(
+        ctx.find_optional(name) is not None
+        for name in (TREASURE_CHEST, TREASURE_CHEST_HINT)
+        if ctx.vision.assets.has(name)
+    )
+    if not visible:
+        return False
+    ctx.logger.info("恢复流程发现宝箱，开箱")
+    for _ in range(CHEST_TAPS):
+        if ctx.should_stop():
+            raise StopRequested("已请求停止")
+        ctx.tap(*CHEST_POINT)
+        ctx.sleep(CHEST_TAP_DELAY)
+    ctx.sleep(CHEST_WAIT)
+    deadline = ctx.clock() + CHEST_CONTINUE_TIMEOUT
+    while ctx.clock() < deadline:
+        if ctx.should_stop():
+            raise StopRequested("已请求停止")
+        match = ctx.find_optional(CHEST_CONTINUE)
+        if match is None:
+            match = ctx.find_optional(BATTLE_RETURN)
+        if match is not None:
+            ctx.logger.info("点击宝箱继续")
+            ctx.tap_match(match)
+            ctx.sleep(1.8)
+            return True
+        ctx.sleep(0.5)
+    ctx.tap(*CHEST_CONTINUE_POINT)
+    ctx.sleep(1.8)
+    return True
 
 
 def reload_if_stopped(ctx: Context, screen=None) -> bool:

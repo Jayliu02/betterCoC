@@ -70,11 +70,12 @@ def cmd_status(args) -> int:
         redraw=False,
     )
     remaining = state.get("wall_remaining")
-    walls_done = state.get("walls_done")
+    upgraded = state.get("wall_upgraded")
+    complete = bool(state.get("wall_complete"))
     set_walls(
         int(remaining) if remaining is not None else None,
-        int(walls_done) if walls_done is not None else None,
-        int(config.get("task.farm_wall.total_walls", 300)),
+        int(upgraded) if upgraded is not None else None,
+        complete=complete,
         redraw=False,
     )
     if args.live:

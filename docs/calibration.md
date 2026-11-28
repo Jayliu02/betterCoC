@@ -274,7 +274,7 @@ task:
   raid:
     auto_battle: true
     loot_check: true
-    min_total: 2000000
+    min_total: 1000000
     max_next: 15
 ```
 
@@ -295,13 +295,15 @@ army:
 
 1. 点击主城右下角“建造”
 2. 在“建筑和英雄”列表上下滑动
-3. 找到“城墙 x300”行，点击
+3. 找到“城墙 xN”行，读取右侧可升级数量，点击
 4. 点击“升级更多”进入批量选择
 5. 用“+10 / +1”选数量
 6. 金币/圣水按钮位置固定在 `[487,930]`、`[707,930]`
 7. 确认页点“确定”
 
-主城“建造”是固定坐标 `build_button`，城墙入口 `wall_entry` 仍需模板匹配（位置随滚动变化），升墙数量/金币/圣水/确定按钮坐标在 `config/*.yaml` 的 `task.wall_upgrade` 里。还需要 `home_gold/elixir/dark`、`wall_cost_gold/elixir` 的数字 ROI。
+主城“建造”是固定坐标 `build_button`。城墙行优先用 `wall_row_label`（“城墙 x”文字）定位，城墙图标会随等级变化，`wall_entry` 只作为备用锚点。升墙数量/金币/圣水/确定按钮坐标在 `config/*.yaml` 的 `task.wall_upgrade` 里。使用文字锚点时数量 ROI 从文字右侧自动推算；使用图标锚点时用 `remaining_offset`。还需要 `home_gold/elixir/dark`、`wall_cost_gold/elixir` 的数字 ROI。
+
+`wall_row_label` 会随分辨率/窗口大小变化。换分辨率后从实机截图裁一块“城墙 x”文字，宽高约 60x34（1920 规范坐标），放到 `assets/templates/wall_row_label.png`，阈值从 0.9 起调。
 
 完整说明见 [wall-loop.md](wall-loop.md)。
 

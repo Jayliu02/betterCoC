@@ -22,12 +22,16 @@ DIALOG_OK = "dialog_ok"
 LOOT_GOLD = "loot_gold"
 LOOT_ELIXIR = "loot_elixir"
 LOOT_DARK = "loot_dark"
+TREASURE_CHEST = "treasure_chest"
+TREASURE_CHEST_HINT = "treasure_chest_hint"
+CHEST_CONTINUE = "chest_continue"
 
 
 @dataclass
 class RaidMemory:
     cycles: int = 0
     raids: int = 0
+    chests: int = 0
     errors: int = 0
     fatal: bool = False
 
@@ -71,6 +75,7 @@ class RaidTask(Task):
         finally:
             ctx.stats.set("raids", self.memory.raids)
             ctx.stats.set("cycles", self.memory.cycles)
+            ctx.stats.set("chests", self.memory.chests)
         transitions = [
             {
                 "from": item.source,
@@ -97,13 +102,13 @@ class RaidTask(Task):
         self.max_errors = int(cfg.get("task.raid.max_errors", 3))
         self.match_timeout = float(cfg.get("task.raid.match_timeout", 45))
         self.battle_start_timeout = float(cfg.get("task.raid.battle_start_timeout", 45))
-        self.battle_timeout = float(cfg.get("task.raid.battle_timeout", 240))
+        self.battle_timeout = float(cfg.get("task.raid.battle_timeout", 360))
         self.result_timeout = float(cfg.get("task.raid.result_timeout", 20))
         self.end_battle_after_deploy = bool(
             cfg.get("task.raid.end_battle_after_deploy", True)
         )
         self.loot_check = bool(cfg.get("task.raid.loot_check", True))
-        self.min_total = int(cfg.get("task.raid.min_total", 2_000_000))
+        self.min_total = int(cfg.get("task.raid.min_total", 1_000_000))
         self.max_next = int(cfg.get("task.raid.max_next", 15))
         self.min_gold = int(cfg.get("task.raid.min_gold", 0))
         self.min_elixir = int(cfg.get("task.raid.min_elixir", 0))
@@ -119,7 +124,32 @@ class RaidTask(Task):
         self.deploy_delay = (
             float(cfg.get("task.raid.army.tap_delay_ms", 120)) / 1000.0
         )
+        self.open_chest = bool(cfg.get("task.raid.open_chest", True))
+        self.chest_taps = max(1, int(cfg.get("task.raid.chest_taps", 4)))
+        self.chest_tap_delay = (
+            float(cfg.get("task.raid.chest_tap_delay_ms", 700)) / 1000.0
+        )
+        self.chest_wait = float(cfg.get("task.raid.chest_wait_ms", 5000)) / 1000.0
+        self.chest_continue_timeout = (
+            float(cfg.get("task.raid.chest_continue_timeout_ms", 10000)) / 1000.0
+        )
+        self.chest_point = self._point(
+            cfg.get("task.raid.chest_point", [960, 540]),
+            "task.raid.chest_point",
+        )
+        self.chest_continue_point = self._point(
+            cfg.get("task.raid.chest_continue_point", [961, 932]),
+            "task.raid.chest_continue_point",
+        )
         self._loot_warned = False
+
+    def _point(self, raw, name: str) -> tuple[int, int]:
+        try:
+            if isinstance(raw, dict):
+                return int(raw["x"]), int(raw["y"])
+            return int(raw[0]), int(raw[1])
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise TaskError(f"{name} 坐标格式错误: {raw!r}") from exc
 
     def _points(self, raw, name: str) -> list[tuple[int, int]]:
         points: list[tuple[int, int]] = []
@@ -274,6 +304,46 @@ class RaidTask(Task):
                     ctx.tap(*point)
                     ctx.sleep(self.deploy_delay)
 
+    def _treasure_chest_visible(self) -> bool:
+        for name in (TREASURE_CHEST, TREASURE_CHEST_HINT):
+            if not self.ctx.vision.assets.has(name):
+                continue
+            if self.ctx.find_optional(name) is not None:
+                return True
+        return False
+
+    def _open_treasure_chest(self) -> None:
+        ctx = self.ctx
+        ctx.logger.info("发现宝箱，敲击 %d 次开箱", self.chest_taps)
+        for _ in range(self.chest_taps):
+            if ctx.should_stop():
+                raise StopRequested("已请求停止")
+            ctx.tap(*self.chest_point)
+            ctx.sleep(self.chest_tap_delay)
+        ctx.sleep(self.chest_wait)
+        self._click_chest_continue()
+        self.memory.chests += 1
+        ctx.stats.set("chests", self.memory.chests)
+
+    def _click_chest_continue(self) -> None:
+        ctx = self.ctx
+        deadline = ctx.clock() + self.chest_continue_timeout
+        while ctx.clock() < deadline:
+            if ctx.should_stop():
+                raise StopRequested("已请求停止")
+            match = ctx.find_optional(CHEST_CONTINUE)
+            if match is None:
+                match = ctx.find_optional(BATTLE_RETURN)
+            if match is not None:
+                ctx.logger.info("点击宝箱继续")
+                ctx.tap_match(match)
+                ctx.sleep(1.8)
+                return
+            ctx.sleep(0.5)
+        ctx.logger.warning("宝箱继续按钮未识别，按固定位置点击")
+        ctx.tap(*self.chest_continue_point)
+        ctx.sleep(1.8)
+
     def _wait_battle_result(self, timeout: float) -> None:
         ctx = self.ctx
         deadline = ctx.clock() + timeout
@@ -286,6 +356,10 @@ class RaidTask(Task):
                 next_stop_check = now + 5.0
                 if reload_if_stopped(ctx):
                     continue
+            if self.open_chest and self._treasure_chest_visible():
+                deadline = max(deadline, ctx.clock() + 30.0)
+                self._open_treasure_chest()
+                continue
             returned = ctx.try_wait(BATTLE_RETURN, 1.5)
             if returned is not None:
                 ctx.tap_match(returned)
@@ -338,6 +412,8 @@ class RaidTask(Task):
 
     def _summary(self, status: str) -> str:
         base = f"{self.memory.cycles} 轮，进攻 {self.memory.raids} 次"
+        if self.memory.chests:
+            base += f"，开宝箱 {self.memory.chests} 个"
         if self.memory.errors:
             base += f"，恢复 {self.memory.errors} 次"
         if status == "stopped":

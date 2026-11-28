@@ -4,10 +4,9 @@ import time
 from dataclasses import dataclass
 
 from ..context import Context
-from ..errors import BetterCoCError, MissingAssetError, StopRequested, TaskError
-from ..ocr import parse_number
+from ..errors import BetterCoCError, StopRequested, TaskError
 from ..recovery import ensure_home, restart_game
-from ..state import read_state, update_state
+from ..state import update_state
 from .. import console, resources
 from .base import Task, TaskResult
 from .raid import RaidTask
@@ -19,7 +18,6 @@ class FarmMemory:
     cycles: int = 0
     raids: int = 0
     wall_upgrades: int = 0
-    walls_done: int = 0
     gold_spent: int = 0
     elixir_spent: int = 0
     fatal: bool = False
@@ -33,26 +31,13 @@ class FarmWallTask(Task):
         self._begin(ctx)
         self._load_settings()
         resources.ensure_loaded(ctx)
-        state = read_state(self.state_file)
-        self.last_wall_remaining = None
-        raw_remaining = state.get("wall_remaining")
-        if raw_remaining is not None:
-            try:
-                self.last_wall_remaining = max(0, int(raw_remaining))
-            except (TypeError, ValueError):
-                self.last_wall_remaining = None
-        self.memory = FarmMemory(
-            walls_done=max(self.walls_done_config, int(state.get("walls_done", 0)))
-        )
-        if self.last_wall_remaining is not None:
-            self.memory.walls_done = max(
-                self.memory.walls_done,
-                max(0, self.total_walls - self.last_wall_remaining),
-            )
+        self.wall_remaining: int | None = None
+        self.walls_complete = False
+        self.memory = FarmMemory()
         console.set_walls(
-            self.last_wall_remaining,
-            self.memory.walls_done,
-            self.total_walls,
+            None,
+            self.memory.wall_upgrades,
+            complete=False,
             reason="任务开始",
         )
         status = "success"
@@ -80,6 +65,10 @@ class FarmWallTask(Task):
         ctx.stats.set("wall_upgrades", self.memory.wall_upgrades)
         ctx.stats.set("gold_spent", self.memory.gold_spent)
         ctx.stats.set("elixir_spent", self.memory.elixir_spent)
+        ctx.stats.set(
+            "wall_remaining", -1 if self.wall_remaining is None else self.wall_remaining
+        )
+        ctx.stats.set("wall_complete", 1 if self.walls_complete else 0)
         return TaskResult(
             task=self.name,
             status=status,
@@ -93,8 +82,6 @@ class FarmWallTask(Task):
         cfg = self.ctx.config
         self.full_gold = int(cfg.get("task.farm_wall.full_gold", 10_000_000))
         self.full_elixir = int(cfg.get("task.farm_wall.full_elixir", 10_000_000))
-        self.total_walls = int(cfg.get("task.farm_wall.total_walls", 300))
-        self.walls_done_config = int(cfg.get("task.farm_wall.walls_done", 0))
         self.wall_batch = max(0, int(cfg.get("task.farm_wall.wall_batch", 0)))
         self.max_cycles = int(cfg.get("task.farm_wall.max_cycles", 0))
         self.max_runtime_min = float(cfg.get("task.farm_wall.max_runtime_min", 0))
@@ -105,6 +92,9 @@ class FarmWallTask(Task):
         self.threshold_ratio = float(
             cfg.get("task.farm_wall.threshold_ratio", 0.9)
         )
+        self.farm_after_complete = bool(
+            cfg.get("task.farm_wall.farm_after_complete", False)
+        )
         self.restarts = 0
         self.raid_failures = 0
         self.state_file = cfg.resolve_path(
@@ -113,7 +103,10 @@ class FarmWallTask(Task):
         self.max_resource = int(
             cfg.get("task.farm_wall.max_resource", 20_000_000)
         )
-        self.wall_cost = int(cfg.get("task.wall_upgrade.cost_per_wall", 600_000))
+        self.wall_cost_gold = int(
+            cfg.get("task.wall_upgrade.cost_per_wall", 600_000)
+        )
+        self.wall_cost_elixir = self.wall_cost_gold
         self._last_gold = 0
         self._last_elixir = 0
         self._last_dark = 0
@@ -130,27 +123,25 @@ class FarmWallTask(Task):
             self.threshold_ratio * 100,
         )
         if total > threshold:
-            if self._walls_done():
-                ctx.logger.info("城墙已升满，退出")
-                return
-            ctx.logger.info("资源总和超过阈值，先升墙")
             self._upgrade_walls()
             if self._walls_done():
-                ctx.logger.info("城墙已升满，退出")
+                self._after_walls_complete()
                 return
-        first = True
         while True:
             if self._limits_reached():
                 return
             if self._raid_once() <= 0:
                 continue
-            if not first and self._walls_done():
-                break
             self._upgrade_walls()
-            first = False
             if self._walls_done():
-                break
-        self._farm_to_threshold()
+                self._after_walls_complete()
+                return
+
+    def _after_walls_complete(self) -> None:
+        self.ctx.logger.info("城墙已无可升级项，停止打资源升墙循环")
+        if self.farm_after_complete:
+            self.ctx.logger.info("farm_after_complete 已开启，继续打资源到阈值")
+            self._farm_to_threshold()
 
     def _farm_to_threshold(self) -> None:
         ctx = self.ctx
@@ -190,16 +181,13 @@ class FarmWallTask(Task):
         return False
 
     def _walls_done(self) -> bool:
-        return self.last_wall_remaining is not None and self.last_wall_remaining <= 0
-
-    def _remaining_walls(self) -> int:
-        if self.last_wall_remaining is not None:
-            return max(0, self.last_wall_remaining)
-        return max(0, self.total_walls - self.memory.walls_done)
+        return self.walls_complete
 
     def _can_afford_wall(self) -> bool:
         gold, elixir, _ = resources.snapshot()
-        return gold >= self.wall_cost or elixir >= self.wall_cost
+        if self.wall_cost_gold > 0 and gold >= self.wall_cost_gold:
+            return True
+        return self.wall_cost_elixir > 0 and elixir >= self.wall_cost_elixir
 
     def _raid_once(self) -> int:
         ctx = self.ctx
@@ -228,34 +216,32 @@ class FarmWallTask(Task):
 
     def _upgrade_walls(self) -> int:
         ctx = self.ctx
-        remaining = self._remaining_walls()
-        if remaining <= 0:
-            self.last_wall_remaining = 0
-            return 0
-        result = WallUpgradeTask(
-            max_upgrades=remaining,
-            batch_size=self.wall_batch,
-        ).run(ctx)
+        result = WallUpgradeTask(max_upgrades=0, batch_size=self.wall_batch).run(ctx)
+        if result.status != "success":
+            ctx.logger.warning("城墙任务状态 %s: %s", result.status, result.reason)
         upgraded = int(result.counters.get("wall_upgrades", 0))
-        remaining_raw = result.counters.get("wall_remaining")
-        if remaining_raw is not None:
-            remaining_count = max(0, int(remaining_raw))
-            final_remaining = max(0, remaining_count - upgraded)
-            self.last_wall_remaining = final_remaining
-            self.memory.walls_done = max(0, self.total_walls - final_remaining)
-        elif self.last_wall_remaining is not None:
-            self.last_wall_remaining = max(0, self.last_wall_remaining - upgraded)
-            self.memory.walls_done = max(0, self.total_walls - self.last_wall_remaining)
-        else:
-            self.memory.walls_done += upgraded
+        raw_remaining = result.counters.get("wall_remaining")
+        if raw_remaining is not None and int(raw_remaining) >= 0:
+            self.wall_remaining = int(raw_remaining)
+            if self.wall_remaining == 0:
+                self.walls_complete = True
+        if int(result.counters.get("wall_complete", 0)):
+            self.walls_complete = True
+            self.wall_remaining = 0
+        cost_gold = int(result.counters.get("wall_cost_gold", 0))
+        cost_elixir = int(result.counters.get("wall_cost_elixir", 0))
+        if cost_gold > 0:
+            self.wall_cost_gold = cost_gold
+        if cost_elixir > 0:
+            self.wall_cost_elixir = cost_elixir
         self.memory.wall_upgrades += upgraded
         self.memory.gold_spent += int(result.counters.get("gold_spent", 0))
         self.memory.elixir_spent += int(result.counters.get("elixir_spent", 0))
         self._last_gold, self._last_elixir, self._last_dark = resources.snapshot()
         console.set_walls(
-            self.last_wall_remaining,
-            self.memory.walls_done,
-            self.total_walls,
+            self.wall_remaining,
+            self.memory.wall_upgrades,
+            complete=self.walls_complete,
             reason=f"升级城墙 {upgraded} 段",
         )
         self._save_state()
@@ -265,8 +251,9 @@ class FarmWallTask(Task):
             and self._can_afford_wall()
         ):
             ctx.logger.warning("资源足够但无法继续升级城墙")
-            if self._restart_and_retry():
-                return self._upgrade_walls()
+            if not self._restart_and_retry():
+                raise TaskError("城墙无法继续升级，重进游戏次数已用完")
+            return self._upgrade_walls()
         return upgraded
 
     def _ensure_home(self) -> None:
@@ -303,17 +290,6 @@ class FarmWallTask(Task):
             ctx.logger.exception("重进游戏后刷新资源失败")
         return True
 
-    def _read_number(self, name: str, screen) -> int:
-        ctx = self.ctx
-        if not ctx.vision.assets.has(name):
-            return 0
-        try:
-            match = ctx.find(name, screen=screen)
-        except MissingAssetError:
-            return 0
-        value = parse_number(match.text if match else None)
-        return value or 0
-
     def _save_state(self) -> None:
         try:
             update_state(
@@ -322,8 +298,9 @@ class FarmWallTask(Task):
                 gold=self._last_gold,
                 elixir=self._last_elixir,
                 dark=self._last_dark,
-                walls_done=self.memory.walls_done,
-                wall_remaining=self.last_wall_remaining,
+                wall_remaining=self.wall_remaining,
+                wall_upgraded=self.memory.wall_upgrades,
+                wall_complete=self.walls_complete,
                 farm_cycles=self.memory.cycles,
                 farm_raids=self.memory.raids,
                 farm_wall_upgrades=self.memory.wall_upgrades,
@@ -336,9 +313,14 @@ class FarmWallTask(Task):
     def _summary(self, status: str) -> str:
         base = (
             f"{self.memory.cycles} 轮调度，进攻 {self.memory.raids} 次，"
-            f"升级城墙 {self.memory.wall_upgrades} 段，"
-            f"累计 {self.memory.walls_done}/{self.total_walls}"
+            f"升级城墙 {self.memory.wall_upgrades} 段"
         )
+        if self.walls_complete:
+            base += "，城墙已无可升级项"
+        elif self.wall_remaining is not None:
+            base += f"，剩余 {self.wall_remaining} 段"
+        else:
+            base += "，剩余数量未知"
         if self.restarts:
             base += f"，重进游戏 {self.restarts} 次"
         if status == "stopped":

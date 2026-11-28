@@ -7,8 +7,8 @@ _GOLD_MAX = 0
 _ELIXIR_MAX = 0
 _DARK_MAX = 0
 _WALLS_REMAINING: int | None = None
-_WALLS_DONE: int | None = None
-_TOTAL_WALLS = 300
+_WALLS_UPGRADED: int | None = None
+_WALLS_COMPLETE = False
 _LAST_KEY: tuple | None = None
 
 
@@ -30,18 +30,18 @@ def set_max(
 
 
 def set_walls(
-    remaining: int | None,
-    done: int | None = None,
-    total: int = 300,
+    remaining: int | None = None,
+    upgraded: int | None = None,
+    complete: bool | None = None,
     reason: str = "",
     redraw: bool = True,
 ) -> None:
-    global _WALLS_REMAINING, _WALLS_DONE, _TOTAL_WALLS
-    if remaining is not None:
-        _WALLS_REMAINING = int(remaining)
-    if done is not None:
-        _WALLS_DONE = int(done)
-    _TOTAL_WALLS = int(total)
+    global _WALLS_REMAINING, _WALLS_UPGRADED, _WALLS_COMPLETE
+    _WALLS_REMAINING = None if remaining is None else int(remaining)
+    if upgraded is not None:
+        _WALLS_UPGRADED = int(upgraded)
+    if complete is not None:
+        _WALLS_COMPLETE = bool(complete)
     if redraw:
         update(reason=reason)
 
@@ -68,8 +68,8 @@ def update(
         _ELIXIR_MAX,
         _DARK_MAX,
         _WALLS_REMAINING,
-        _WALLS_DONE,
-        _TOTAL_WALLS,
+        _WALLS_UPGRADED,
+        _WALLS_COMPLETE,
     )
     if key == _LAST_KEY and not force:
         return
@@ -84,11 +84,14 @@ def update(
         f"| 圣水 {_ELIXIR:,} / {elixir_max}",
         f"| 暗黑 {_DARK:,} / {dark_max}",
     ]
-    if _WALLS_REMAINING is not None:
-        done = "?" if _WALLS_DONE is None else f"{_WALLS_DONE}"
-        lines.append(
-            f"| 城墙 剩余 {_WALLS_REMAINING:>3} / {_TOTAL_WALLS:<3}   已升级 {done:<3}       |"
-        )
+    if _WALLS_COMPLETE:
+        lines.append("| 城墙 已无可升级项")
+    elif _WALLS_REMAINING is not None:
+        lines.append(f"| 城墙 可升级 {_WALLS_REMAINING} 段")
+    else:
+        lines.append("| 城墙 可升级数量未知")
+    if _WALLS_UPGRADED is not None:
+        lines.append(f"| 本次升级 {_WALLS_UPGRADED} 段")
     if reason:
         lines.append(f"| {reason:<38} |")
     lines.append("+------------------------------------------+")

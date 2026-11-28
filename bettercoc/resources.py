@@ -8,7 +8,7 @@ from .errors import MissingAssetError
 from .geometry import Rect
 from .ocr import parse_number
 from .recovery import ensure_home
-from .state import read_state, update_state
+from .state import update_state
 
 if TYPE_CHECKING:
     from .context import Context
@@ -81,7 +81,6 @@ def refresh(ctx: Context, reason: str = "刷新") -> tuple[int, int, int]:
         ctx.logger.error("无法读取主城资源，保留上一次全局值")
         return snapshot()
     gold, elixir, dark = values
-    _seed_walls(ctx)
     if not MAX_LOADED:
         _read_max_values(ctx, (gold, elixir, dark))
         console.set_max(GOLD_MAX, ELIXIR_MAX, DARK_MAX, redraw=False)
@@ -143,20 +142,6 @@ def _zoom_out_min(ctx: Context) -> None:
     ctx.sleep(0.4)
 
 
-def _seed_walls(ctx: Context) -> None:
-    state = read_state(ctx.config.resolve_path(STATE_FILE))
-    remaining = state.get("wall_remaining")
-    done = state.get("walls_done")
-    if remaining is None:
-        return
-    console.set_walls(
-        int(remaining),
-        int(done) if done is not None else None,
-        int(ctx.config.get("task.farm_wall.total_walls", 300)),
-        redraw=False,
-    )
-
-
 def _read_max_values(
     ctx: Context,
     current_values: tuple[int, int, int],
@@ -185,9 +170,11 @@ def _read_max_values(
         "dark": current_values[2],
     }
     for label, x, y, roi, key, config_key, fallback in checks:
+        _close_max_popup(ctx)
         value = None
         score = 0.0
-        for _ in range(2):
+        screen = None
+        for _ in range(3):
             ctx.tap(x, y)
             ctx.sleep(0.55)
             screen = ctx.screen()
@@ -217,6 +204,12 @@ def _read_max_values(
         else:
             values[key] = int(ctx.config.get(f"task.farm_wall.{config_key}", fallback))
             ctx.logger.warning("%s 上限读取失败，使用配置 %s", label, values[key])
+            if screen is not None:
+                try:
+                    ctx.save_screenshot(f"max-{label}-failed", screen=screen)
+                except Exception:
+                    ctx.logger.exception("保存上限失败截图出错")
+        _close_max_popup(ctx)
     _close_max_popup(ctx)
     GOLD_MAX = values["gold_max"]
     ELIXIR_MAX = values["elixir_max"]

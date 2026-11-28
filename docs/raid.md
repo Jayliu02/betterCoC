@@ -26,8 +26,9 @@ prepare ──> raid ──> decide ──> raid ...
 6. 读取左上角三个数字：金币、圣水、暗黑
 7. 金币 + 圣水 < `min_total` 时点击 `scout_next`，最多 `max_next` 次
 8. 达标后点击 `auto_battle`
-9. 等待 `battle_return_home`，点击“回营”
-10. `decide` 累计轮数
+9. 等待 `battle_return_home`，点击“回营”或宝箱活动的“领取奖励”
+10. 出现宝箱界面时点击宝箱 4 次，等 5 秒后点“继续”
+11. `decide` 累计轮数
 
 `auto_battle` 不存在时回退到手动流程：点 `scout_attack`，等 `battle_end`，按 `army` 配置下兵，再结束战斗。
 
@@ -61,6 +62,18 @@ ROI：
 
 一次截图内读完三个数字，然后立即点击“自动战斗”，避免 30 秒侦察倒计时超时。
 
+## 宝箱
+
+战场寻宝活动期间，摧毁藏有宝箱的建筑后，结算按钮会从“回营”变成“领取奖励”。点击后进入开箱界面：
+
+1. `treasure_chest`（底部 4 个擀面杖进度条）或 `treasure_chest_hint`（“点击！”）命中后开始开箱
+2. 在 `(960,540)` 连续点击 4 次，间隔 `chest_tap_delay_ms`
+3. 等待 `chest_wait_ms`（默认 5 秒）
+4. 用 `chest_continue` 颜色定位绿色“继续”按钮并点击；识别不到时用 `chest_continue_point` 兜底
+5. 回到主城后继续下一轮
+
+宝箱奖励可能包含资源，任务结束后的资源刷新会读到实际值。
+
 ## 识别项
 
 | 名称 | 类型 | 用途 |
@@ -74,8 +87,11 @@ ROI：
 | `scout_next` | 固定坐标 | 下一个 |
 | `scout_cancel` | 固定坐标 | 结束战斗 |
 | `battle_confirm` | 固定坐标 | “放弃?”确认 |
-| `auto_battle` | 模板 + ROI | 自动战斗（整排按钮会移位） |
-| `battle_return_home` | 固定坐标 | 回营 |
+| `auto_battle` | 模板 + ROI | 自动战斗（复制阵型关闭后位置固定） |
+| `battle_return_home` | 固定坐标 | 回营 / 领取奖励 / 继续 |
+| `treasure_chest` | 模板 + ROI | 宝箱开箱界面 |
+| `treasure_chest_hint` | 模板 + ROI | “点击！”提示 |
+| `chest_continue` | 颜色 | 宝箱“继续”按钮 |
 | `game_stop` | 模板 | 断线弹窗“重新载入游戏” |
 | `loot_gold` / `loot_elixir` / `loot_dark` | 数字 | 资源 |
 
@@ -105,16 +121,23 @@ task:
     max_errors: 3
     match_timeout: 45
     battle_start_timeout: 45
-    battle_timeout: 240
+    battle_timeout: 360
     result_timeout: 20
     end_battle_after_deploy: true
     loot_check: true
-    min_total: 2000000
+    min_total: 1000000
     max_next: 15
     min_gold: 0
     min_elixir: 0
     min_dark: 0
     auto_battle: true
+    open_chest: true
+    chest_taps: 4
+    chest_tap_delay_ms: 700
+    chest_wait_ms: 5000
+    chest_continue_timeout_ms: 10000
+    chest_point: [960, 540]
+    chest_continue_point: [961, 932]
     army:
       troop_slots: []
       deploy_points: []
@@ -129,14 +152,21 @@ task:
 | `max_errors` | 3 | 恢复次数上限 |
 | `match_timeout` | 45 | 匹配对手超时 |
 | `battle_start_timeout` | 45 | 点击进攻后等待战斗界面 |
-| `battle_timeout` | 240 | 自动战斗等待结算 |
+| `battle_timeout` | 360 | 自动战斗等待结算（含开箱） |
 | `result_timeout` | 20 | 手动结束战斗后等待结算 |
 | `end_battle_after_deploy` | true | 手动流程下兵后结束战斗 |
 | `loot_check` | true | 是否读取资源 |
-| `min_total` | 2000000 | 金币 + 圣水阈值 |
+| `min_total` | 1000000 | 金币 + 圣水阈值；用户要求超过 100 万即可战斗 |
 | `max_next` | 15 | 最多换几个对手 |
 | `min_gold` / `min_elixir` / `min_dark` | 0 | 单项额外阈值 |
 | `auto_battle` | true | 点自动战斗 |
+| `open_chest` | true | 出现宝箱时自动开箱 |
+| `chest_taps` | 4 | 开箱点击次数 |
+| `chest_tap_delay_ms` | 700 | 每次点击间隔 |
+| `chest_wait_ms` | 5000 | 点完后等待“继续”出现 |
+| `chest_continue_timeout_ms` | 10000 | 等待“继续”按钮的上限 |
+| `chest_point` | [960,540] | 点击宝箱的位置 |
+| `chest_continue_point` | [961,932] | 未识别到“继续”时的兜底位置 |
 | `army` | 空 | 手动下兵兜底 |
 
 `runtime.reload_timeout`（默认 90 秒）控制断线重载后等待主界面的上限。`max_runtime_min` 按单次 raid 任务计时，`farm_wall` 内每轮都会重新计时。
@@ -168,7 +198,7 @@ MuMu 中文版一轮：
 
 ### 自动战斗点不到
 
-模板必须包含“自动战斗”文字和人物头像，且不要加固定 ROI，因为按钮位置会随底部按钮数量变化。当前模板全屏匹配。
+复制阵型功能关闭后，“自动战斗”按钮位置固定；模板在 ROI `[800, 730, 820, 140]` 内匹配，避免全屏误匹配。如果游戏更新改了位置，调整 ROI 或重新裁剪 `auto_battle.png`。
 
 ### 30 秒内来不及点
 

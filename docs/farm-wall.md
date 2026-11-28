@@ -5,9 +5,10 @@
 把 `raid` 和 `wall_upgrade` 串成一个循环：
 
 1. 初始资源总和超过阈值：先执行一次 `wall_upgrade`
-2. 否则先打一轮资源，再升墙
-3. 重复“打资源 → 升墙”，直到 `wall_upgrade` 读到“没有可升级城墙”
-4. 默认到此结束；`farm_after_complete: true` 时再继续打资源到阈值
+2. 未超过阈值：打资源，直到金币 + 圣水超过阈值
+3. 达到阈值后才升墙，一次升级多段城墙
+4. 重复“打资源 → 达到阈值 → 批量升墙”，直到 `wall_upgrade` 读到“没有可升级城墙”
+5. 默认到此结束；`farm_after_complete: true` 时再继续打资源到阈值
 
 是否升满只由游戏界面决定，不用配置的总城墙数推算。不同大本营城墙数量不同、存在多个城墙等级时都不需要改配置。
 
@@ -27,14 +28,16 @@ bettercoc --config config/mumu.yaml run --task farm_wall --trace
     └── 循环：
          打一轮资源
            │
-         升墙（WallUpgradeTask，max_upgrades=0）
-           │
-         读到“无可升级城墙”？──> 结束
-           │
-         否：继续下一轮
+         总和 > 阈值？
+           ├── 否：继续打资源
+           └── 是：升墙（一次升级多段，WallUpgradeTask，max_upgrades=0）
+                 │
+               读到“无可升级城墙”？──> 结束
+                 │
+               否：继续下一轮
 ```
 
-`wall_upgrade` 每次运行会一直升到资源不足、达到循环上限或读到没有城墙为止；`farm_wall` 只负责在资源不足时去打资源，然后再次调用它。
+达到阈值后，`wall_upgrade` 会连续升级多个城墙，直到资源不足、达到循环上限或读到没有城墙为止；`farm_wall` 在资源总和未达到阈值时只打资源，不调用升墙。
 
 ## 完成判断
 
@@ -143,7 +146,9 @@ bettercoc --config config/mumu.yaml status --live
 阈值 = (GOLD_MAX + ELIXIR_MAX) × threshold_ratio
 ```
 
-`GOLD_MAX`、`ELIXIR_MAX` 来自点击资源后的“最大储量”提示；读取失败时使用 `full_gold`、`full_elixir` 配置兜底。当前大本营金币/圣水上限都是 10,000,000，阈值 90% 即金币 + 圣水 > 18,000,000。
+`GOLD_MAX`、`ELIXIR_MAX` 来自点击资源后的“最大储量”提示；读取失败时使用 `full_gold`、`full_elixir` 配置兜底。`config/mumu.yaml` 当前上限都是 15,000,000，阈值 90% 即金币 + 圣水 > 27,000,000。
+
+资源总和未超过阈值时，`farm_wall` 只打资源，不调用 `wall_upgrade`；超过阈值后才进入建造栏，一次升级多段城墙。`wall_upgrade` 也会收到同一个 `min_total`，低于阈值时直接结束，避免绕过调度单独升墙。
 
 资源读数使用 `home_gold`、`home_elixir`、`home_dark` 数字识别。ROI 已避开右侧资源图标，低数值如 234,789 也能准确读取。
 

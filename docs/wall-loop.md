@@ -46,6 +46,7 @@ prepare ──> open ──> select ──> upgrade ──> decide
 - 读取右上角金币、圣水、暗黑
 - 写入 `runtime/resource-state.json`
 - 记住任务开始时的资源
+- `min_total` 大于 0 时，金币 + 圣水低于阈值直接结束，不开建造面板；`farm_wall` 用它保证“资源总和达到阈值后才批量升墙”
 
 ### open
 
@@ -207,6 +208,7 @@ prepare ──> open ──> select ──> upgrade ──> decide
 task:
   wall_upgrade:
     max_upgrades: 0
+    min_total: 0
     batch_size: 10
     max_batch: 9
     unknown_batch_size: 10
@@ -234,6 +236,7 @@ task:
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
 | `max_upgrades` | 0 | 本次最多升级几段；0 表示只受资源和数量限制 |
+| `min_total` | 0 | 资源总和（金币 + 圣水）低于该值时不升级；0 表示不限制。`farm_wall` 调用时会传入自己的升墙阈值 |
 | `batch_size` | 10 | 每批选择几段；0 表示按可升级数量和资源计算 |
 | `max_batch` | 9 | 单批上限；选到 10 段时游戏会切换成更宽的按钮布局，固定坐标失效 |
 | `unknown_batch_size` | 10 | 读不到可升级数量时，每批最多选几段 |

@@ -61,7 +61,9 @@ class FarmWallScheduleTest(unittest.TestCase):
         calls = []
         task = self.make_task(state, calls)
         task._schedule()
-        self.assertEqual(calls, ["raid", "upgrade", "raid", "upgrade"])
+        self.assertEqual(
+            calls, ["raid", "raid", "upgrade", "raid", "upgrade"]
+        )
 
     def test_completion_comes_from_observation_not_state(self):
         state = {"gold": 105, "elixir": 0, "walls": 0}
@@ -78,7 +80,7 @@ class FarmWallScheduleTest(unittest.TestCase):
         task = self.make_task(state, calls)
         task.walls_complete = True
         task._schedule()
-        self.assertEqual(calls, ["raid", "upgrade"])
+        self.assertEqual(calls, [])
 
     def test_farm_after_complete_runs_threshold_loop(self):
         state = {"gold": 0, "elixir": 0, "walls": 0}
@@ -89,6 +91,7 @@ class FarmWallScheduleTest(unittest.TestCase):
         farmed = []
         task._farm_to_threshold = lambda: farmed.append("farm")
         task._schedule()
+        self.assertEqual(calls, [])
         self.assertEqual(farmed, ["farm"])
 
 

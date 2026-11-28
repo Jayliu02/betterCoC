@@ -73,6 +73,7 @@ class WallMemory:
     pending_currency: str = ""
     complete: bool = False
     no_batch: int = 0
+    threshold_wait: bool = False
     stop_reason: str = ""
     fatal: bool = False
 
@@ -84,9 +85,11 @@ class WallUpgradeTask(Task):
         self,
         max_upgrades: int | None = None,
         batch_size: int | None = None,
+        min_total: int | None = None,
     ) -> None:
         self._max_upgrades_override = max_upgrades
         self._batch_size_override = batch_size
+        self._min_total_override = min_total
 
     def run(self, ctx: Context) -> TaskResult:
         self.ctx = ctx
@@ -140,6 +143,9 @@ class WallUpgradeTask(Task):
                 "wall_remaining", -1 if self.remaining is None else self.remaining
             )
             ctx.stats.set("wall_complete", 1 if self.memory.complete else 0)
+            ctx.stats.set(
+                "wall_threshold_wait", 1 if self.memory.threshold_wait else 0
+            )
             ctx.stats.set("wall_cost_gold", self.last_cost_gold)
             ctx.stats.set("wall_cost_elixir", self.last_cost_elixir)
             console.set_walls(
@@ -170,6 +176,9 @@ class WallUpgradeTask(Task):
         self.max_upgrades = int(cfg.get("task.wall_upgrade.max_upgrades", 0))
         if self._max_upgrades_override is not None:
             self.max_upgrades = self._max_upgrades_override
+        self.min_total = int(cfg.get("task.wall_upgrade.min_total", 0))
+        if self._min_total_override is not None:
+            self.min_total = max(0, self._min_total_override)
         self.batch_size = max(0, int(cfg.get("task.wall_upgrade.batch_size", 10)))
         if self._batch_size_override is not None:
             self.batch_size = max(0, self._batch_size_override)
@@ -263,6 +272,16 @@ class WallUpgradeTask(Task):
             self.memory.elixir,
             self.memory.dark,
         )
+        total = self.memory.gold + self.memory.elixir
+        if self.min_total > 0 and total < self.min_total:
+            self.memory.threshold_wait = True
+            self.memory.stop_reason = (
+                f"资源总和 {total} 未达到升级阈值 {self.min_total}"
+            )
+            self.ctx.logger.info(self.memory.stop_reason)
+            self._save_state()
+            self._save_buttons(self.ctx)
+            return "finish"
         self._save_state()
         self._save_buttons(self.ctx)
         return "open"
@@ -829,6 +848,8 @@ class WallUpgradeTask(Task):
         )
         if self.memory.complete:
             base += "；城墙已无可升级项"
+        elif self.memory.threshold_wait:
+            base += "；资源未达到升级阈值"
         elif self.remaining is not None:
             base += f"；剩余 {self.remaining} 段"
         else:

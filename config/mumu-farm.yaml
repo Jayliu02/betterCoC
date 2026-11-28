@@ -52,6 +52,7 @@ task:
       tap_delay_ms: 120
   wall_upgrade:
     max_upgrades: 0
+    min_total: 0
     batch_size: 10
     max_batch: 9
     max_cycles: 10

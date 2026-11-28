@@ -281,22 +281,23 @@ bettercoc --config config/mumu.yaml run --task wall_upgrade --trace
 
 ## 打资源 + 升墙 farm_wall
 
-目标：反复“打资源 → 升墙”，直到建造栏没有可升级城墙。
+目标：资源先攒到阈值，再一次性升级多段城墙；重复“打资源 → 达到阈值 → 批量升墙”，直到建造栏没有可升级城墙。
 
 调度逻辑：
 
 1. 初始读取资源：金币 + 圣水总和超过“资源限值 × 90%”时，直接先升墙
-2. 否则先打一轮资源，再升墙
-3. 重复“打资源 → 升墙”，直到 `wall_upgrade` 读到没有可升级城墙
-4. 默认结束；`farm_after_complete: true` 时再继续打资源到阈值
+2. 未超过阈值时持续打资源，不调用升墙
+3. 达到阈值后进入建造栏，一次升级多段
+4. 重复步骤 2～3，直到 `wall_upgrade` 读到没有可升级城墙
+5. 默认结束；`farm_after_complete: true` 时再继续打资源到阈值
 
-资源限值取 `GOLD_MAX + ELIXIR_MAX`，未读取上限时用 `full_gold + full_elixir`；阈值比例由 `threshold_ratio` 控制。
+资源限值取 `GOLD_MAX + ELIXIR_MAX`，未读取上限时用 `full_gold + full_elixir`；阈值比例由 `threshold_ratio` 控制。`wall_upgrade` 会收到同一个阈值，低于阈值时直接结束。
 
 ```yaml
 task:
   farm_wall:
-    full_gold: 10000000
-    full_elixir: 10000000
+    full_gold: 15000000
+    full_elixir: 15000000
     wall_batch: 0
     threshold_ratio: 0.9
     max_cycles: 0
@@ -306,7 +307,7 @@ task:
     farm_after_complete: false
 ```
 
-`wall_batch: 0` 表示按资源和城墙数量计算最大批次。
+`wall_batch: 0` 表示按资源和城墙数量计算批次；单批最多 9 段，任务会连续执行多批。
 
 运行：
 

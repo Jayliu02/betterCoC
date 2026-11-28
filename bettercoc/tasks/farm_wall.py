@@ -122,6 +122,9 @@ class FarmWallTask(Task):
             threshold,
             self.threshold_ratio * 100,
         )
+        if self._walls_done():
+            self._after_walls_complete()
+            return
         if total > threshold:
             self._upgrade_walls()
             if self._walls_done():
@@ -130,12 +133,30 @@ class FarmWallTask(Task):
         while True:
             if self._limits_reached():
                 return
+            if self._walls_done():
+                self._after_walls_complete()
+                return
             if self._raid_once() <= 0:
+                continue
+            if not self._reached_threshold():
                 continue
             self._upgrade_walls()
             if self._walls_done():
                 self._after_walls_complete()
                 return
+
+    def _reached_threshold(self) -> bool:
+        gold, elixir, _ = self._read_resources()
+        total = gold + elixir
+        threshold = self._threshold()
+        if total > threshold:
+            return True
+        self.ctx.logger.info(
+            "资源总和 %s 未达到升墙阈值 %s，继续打资源",
+            total,
+            threshold,
+        )
+        return False
 
     def _after_walls_complete(self) -> None:
         self.ctx.logger.info("城墙已无可升级项，停止打资源升墙循环")
@@ -216,7 +237,11 @@ class FarmWallTask(Task):
 
     def _upgrade_walls(self) -> int:
         ctx = self.ctx
-        result = WallUpgradeTask(max_upgrades=0, batch_size=self.wall_batch).run(ctx)
+        result = WallUpgradeTask(
+            max_upgrades=0,
+            batch_size=self.wall_batch,
+            min_total=int(self._threshold()),
+        ).run(ctx)
         if result.status != "success":
             ctx.logger.warning("城墙任务状态 %s: %s", result.status, result.reason)
         upgraded = int(result.counters.get("wall_upgrades", 0))
@@ -245,6 +270,9 @@ class FarmWallTask(Task):
             reason=f"升级城墙 {upgraded} 段",
         )
         self._save_state()
+        if int(result.counters.get("wall_threshold_wait", 0)):
+            ctx.logger.info("资源总和未达到升墙阈值，继续打资源")
+            return 0
         if (
             upgraded <= 0
             and not self._walls_done()

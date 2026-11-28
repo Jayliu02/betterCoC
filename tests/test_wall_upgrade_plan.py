@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from bettercoc.config import Config
 from bettercoc.geometry import Rect
@@ -231,6 +232,44 @@ class SettleCostsTest(unittest.TestCase):
     def test_falls_back_when_both_reads_fail(self):
         task = self.make_task(None, None)
         self.assertEqual(task._settle_costs(None), (600_000, 600_000))
+
+
+class ThresholdTest(unittest.TestCase):
+    def make_task(self, min_total):
+        task = WallUpgradeTask(min_total=min_total)
+        task.ctx = FakeContext()
+        task._load_settings()
+        task.memory = WallMemory()
+        task._ensure_home = lambda: None
+        task._save_state = lambda: None
+        task._save_buttons = lambda ctx: None
+        return task
+
+    def test_below_threshold_finishes_without_upgrading(self):
+        task = self.make_task(1_000)
+        with patch(
+            "bettercoc.tasks.wall_upgrade.resources.ensure_loaded",
+            lambda ctx: (100, 200, 0),
+        ), patch(
+            "bettercoc.tasks.wall_upgrade.resources.snapshot",
+            lambda: (100, 200, 0),
+        ):
+            self.assertEqual(task._prepare(), "finish")
+        self.assertTrue(task.memory.threshold_wait)
+        self.assertIn("未达到升级阈值", task.memory.stop_reason)
+        self.assertIn("未达到升级阈值", task._summary("success"))
+
+    def test_at_threshold_opens_wall_panel(self):
+        task = self.make_task(1_000)
+        with patch(
+            "bettercoc.tasks.wall_upgrade.resources.ensure_loaded",
+            lambda ctx: (600, 400, 0),
+        ), patch(
+            "bettercoc.tasks.wall_upgrade.resources.snapshot",
+            lambda: (600, 400, 0),
+        ):
+            self.assertEqual(task._prepare(), "open")
+        self.assertFalse(task.memory.threshold_wait)
 
 
 class EnterBatchTest(unittest.TestCase):
